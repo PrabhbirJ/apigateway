@@ -1,0 +1,16 @@
+[project]
+name = "apigateway"
+version = "1.0.0"
+description = "API Gateway validation utilities"
+authors = [{ name = "PrabhBirJ" }]
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.11.7",
+]
+
+[tool.uv.dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
+
+[tool.uv]
