@@ -71,34 +71,20 @@ apigateway/
 ```
 ---
 
-## Usage
+## Error Handling
 
-```python
-from pydantic import BaseModel
-from apigateway.core.validation import validate_request
-from apigateway.core.enums.validation_modes import ValidationMode
-
-
-# Define your request schema
-class UserPayload(BaseModel):
-    id: int
-    name: str
-    email: str
-
-
-# Apply validation decorator
-@validate_request(UserPayload, mode=ValidationMode.STRICT)
-def handle_user_request(payload: dict):
-    # If validation passes, payload is guaranteed safe
-    return {"message": f"Hello {payload['name']}!"}
-
-
-# Example usage
-valid_data = {"id": 1, "name": "J", "email": "j@example.com"}
-print(handle_user_request(valid_data))
-# ✅ {"message": "Hello J!"}
-
-invalid_data = {"id": "oops", "name": "J"}
-print(handle_user_request(invalid_data))
-# ❌ raises pydantic.ValidationError
+All validation errors are raised as GatewayValidationError with this schema:
+```bash
+{
+  "error": "Validation Failed",
+  "code": "validation_error",
+  "details": [
+    {
+      "field": "id",
+      "message": "value is not a valid integer",
+      "type": "type_error.integer"
+    }
+  ]
+}
 ```
+You can customize formatting by supplying your own error_formatter

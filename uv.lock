@@ -14,17 +14,22 @@ wheels = [
 [[package]]
 name = "apigateway"
 version = "1.0.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
+]
+
+[package.optional-dependencies]
+dev = [
     { name = "pytest" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "pydantic", specifier = ">=2.11.7" },
-    { name = "pytest", specifier = ">=8.4.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.4.1" },
 ]
+provides-extras = ["dev"]
 
 [[package]]
 name = "colorama"
