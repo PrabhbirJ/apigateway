@@ -54,17 +54,22 @@ uv run pytest
 ##  Project Structure
 
 ```bash
-apigateway/
-├── core/
-│   ├── validation.py          # Validation decorator and utilities
-│   └── enums/
-│       └── validation_modes.py # STRICT / LAX validation modes
-├── tests/
-│   └── test_validation.py     # Pytest suite
-├── LICENSE            
-├── CHANGELOG.md         
-├── pyproject.toml             # Project metadata & dependencies
-└── README.md
+apigateway
+├── CHANGELOG.md
+├── LICENSE
+├── README.md
+├── pyproject.toml
+├── src
+│   ├── apigateway
+│   │   ├── core
+│   │   │   ├── enums
+│   │   │   │   └── validation_modes.py
+│   │   │   └── validation.py
+│   │   └── exceptions
+│   │       ├── GatewayValidationError.py
+├── tests
+│   └── test_validation.py
+└── uv.lock
 ```
 ---
 
