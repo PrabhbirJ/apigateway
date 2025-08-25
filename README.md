@@ -40,15 +40,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 
-git clone https://github.com/<your-username>/apigateway.git
+git clone https://github.com/PrabhbirJ/apigateway.git
 cd apigateway
-uv sync
+uv sync --extra dev
 
-# macOS / Linux
-source .venv/bin/activate  
-
-# Windows
-.venv\Scripts\activate
+# Run tests
+uv run pytest
 ```
 
 
