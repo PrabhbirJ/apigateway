@@ -18,7 +18,7 @@ The goal of **API Gateway** is to provide:
 
 ---
 
-##  Installation
+##  Installation For Contribution
 
 To get started you need [`uv`](https://docs.astral.sh/uv/), a fast Python package manager. Install it first with:
 
@@ -38,6 +38,27 @@ uv sync --extra dev
 uv run pytest
 ```
 
+---
+
+##  Installation To Use in Your Project
+
+To get started you need [`uv`](https://docs.astral.sh/uv/), a fast Python package manager. Install it first with:
+
+```bash
+# On Linux / macOS
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# On Windows (PowerShell)
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+cd {Project_Directory}
+
+uv init
+uv add git+https://github.com/PrabhbirJ/apigateway.git
+
+uv add flask django fastapi
+
+```
 
 ---
 
