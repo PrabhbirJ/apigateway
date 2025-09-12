@@ -1,6 +1,6 @@
 import pytest
 from pydantic import BaseModel, ConfigDict
-from apigateway.core.validation import validate_generic, PreValidators
+from apigateway.core.validation.validation import validate_generic, PreValidators
 from apigateway.exceptions.GatewayValidationError import GatewayValidationError
 
 def test_pre_validator_normalizes_email():

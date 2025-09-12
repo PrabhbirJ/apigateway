@@ -1,6 +1,6 @@
 import pytest
 from pydantic import BaseModel, ConfigDict
-from apigateway.core.validation import validate_generic
+from apigateway.core.validation.validation import validate_generic
 from apigateway.core.enums.validation_modes import ValidationMode
 from apigateway.exceptions.GatewayValidationError import GatewayValidationError
 

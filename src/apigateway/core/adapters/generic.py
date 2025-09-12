@@ -32,3 +32,6 @@ class GenericAdapter(FrameworkAdapter):
     def handle_validation_error(self, error: GatewayValidationError) -> Any:
         # Re-raise for custom handling
         raise error
+    
+    def extract_files(self, *args, **kwargs) -> Dict[str, Any]:
+        pass

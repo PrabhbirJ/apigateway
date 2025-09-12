@@ -47,3 +47,20 @@ class FlaskAdapter(FrameworkAdapter):
         })
         response.status_code = 422  # Consistent with FastAPI
         return response
+    
+
+    
+    def extract_files(self, *args, **kwargs) -> Dict[str, Any]:
+        from flask import request
+        
+        files = {}
+        
+        if request.files:
+            for field_name in request.files:
+                file_list = request.files.getlist(field_name)
+                if len(file_list) == 1:
+                    files[field_name] = file_list[0]  # Single file
+                else:
+                    files[field_name] = file_list     # Multiple files
+        
+        return files

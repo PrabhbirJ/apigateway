@@ -45,3 +45,15 @@ class DjangoAdapter(FrameworkAdapter):
             "details": error.details
         }, status=400)
     
+    def extract_files(self, request, *args, **kwargs) -> Dict[str, Any]:
+        files = {}
+        
+        if hasattr(request, 'FILES') and request.FILES:
+            for field_name in request.FILES:
+                file_list = request.FILES.getlist(field_name)
+                if len(file_list) == 1:
+                    files[field_name] = file_list[0]  # Single file
+                else:
+                    files[field_name] = file_list     # Multiple files
+        
+        return files

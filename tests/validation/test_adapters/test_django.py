@@ -3,7 +3,7 @@ import json
 from django.http import JsonResponse
 from django.urls import path
 from pydantic import BaseModel, ConfigDict
-from apigateway.core.validation import validate_django
+from apigateway.core.validation.validation import validate_django
 from apigateway.core.enums.validation_modes import ValidationMode
 
 

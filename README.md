@@ -32,7 +32,7 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 git clone https://github.com/PrabhbirJ/apigateway.git
 cd apigateway
-uv sync --extra dev
+uv sync --all-extras --dev
 
 # Run tests
 uv run pytest

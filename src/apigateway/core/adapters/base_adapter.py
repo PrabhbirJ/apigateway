@@ -16,3 +16,7 @@ class FrameworkAdapter(ABC):
     def handle_validation_error(self, error: GatewayValidationError) -> Any:
         """Handle validation error in framework-specific way"""
         pass
+    @abstractmethod
+    def extract_files(self,*args,**kwargs) -> Dict[str,Any]:
+        '''Extract uploaded files from framework-specific request object'''
+        pass

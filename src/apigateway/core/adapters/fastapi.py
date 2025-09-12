@@ -51,3 +51,24 @@ class FastAPIAdapter(FrameworkAdapter):
                 "details": error.details
             }
         )
+    
+    def extract_files(self, *args, **kwargs) -> Dict[str, Any]:
+        from fastapi import UploadFile
+        
+        files = {}
+        
+        # Check kwargs for UploadFile objects (FastAPI dependency injection style)
+        for key, value in kwargs.items():
+            if isinstance(value, UploadFile):
+                files[key] = value
+            elif isinstance(value, list) and value and isinstance(value[0], UploadFile):
+                files[key] = value  # Multiple files
+        
+        # Check positional args for UploadFile objects
+        for i, arg in enumerate(args):
+            if isinstance(arg, UploadFile):
+                files[f"file_{i}"] = arg
+            elif isinstance(arg, list) and arg and isinstance(arg[0], UploadFile):
+                files[f"files_{i}"] = arg
+        
+        return files

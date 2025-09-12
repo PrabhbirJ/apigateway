@@ -3,7 +3,7 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict
-from apigateway.core.validation import validate_fastapi
+from apigateway.core.validation.validation import validate_fastapi
 from apigateway.core.enums.validation_modes import ValidationMode
 
 

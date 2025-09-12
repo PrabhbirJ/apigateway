@@ -2,7 +2,7 @@ import pytest
 from flask import Flask
 from pydantic import BaseModel, ConfigDict
 from apigateway.core.enums.validation_modes import ValidationMode
-from apigateway.core.validation import validate_flask, PreValidators
+from apigateway.core.validation.validation import validate_flask, PreValidators
 
 
 def test_flask_json_validation():
