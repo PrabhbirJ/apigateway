@@ -9,7 +9,8 @@ description = "API Gateway"
 authors = [{ name = "PrabhBirJ" }]
 requires-python = ">=3.11"
 dependencies = [
-    "pydantic>=2.11.7"
+    "jwt>=1.4.0",
+    "pydantic>=2.11.7",
 ]
 
 [project.optional-dependencies]

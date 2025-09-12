@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 
 
+## [1.2.0] - 2025-09-12
+### Added
+- Updated Framework Adapters for authorization
+- Added authorization support
+- Added Role Based Access Control
+
 ## [1.1.0] - 2025-08-29
 ### Added
 - Framework adapter support:

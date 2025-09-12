@@ -2,8 +2,8 @@
 
 
 **API Gateway** is a modular, developer-friendly Python project designed to become a **full-featured API Gateway framework**.  
-Right now (v1.0.0) it ships with **request validation utilities** powered by [Pydantic](https://docs.pydantic.dev).  
-In the coming weeks, it will expand into routing, authentication, rate limiting, logging, and more.
+(v1.2.0) it ships with **request validation utilities and authorization** powered by [Pydantic](https://docs.pydantic.dev).  
+In the coming weeks, it will expand into routing, rate limiting, logging, and more.
 
 ---
 
@@ -65,47 +65,60 @@ uv add flask django fastapi
 ##  Project Structure
 
 ```bash
-apigateway/
+apigateway
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md
 ├── pyproject.toml
-├── src/
-│   └── apigateway/
-│       ├── core/
-│       │   ├── __init__.py
-│       │   ├── adapters/
-│       │   │   ├── __init__.py
-│       │   │   ├── base_adapter.py
-│       │   │   ├── django.py
-│       │   │   ├── fastapi.py
-│       │   │   ├── flask.py
-│       │   │   └── generic.py
-│       │   ├── enums/
-│       │   │   ├── __init__.py
-│       │   │   └── validation_modes.py
-│       │   ├── errors/
-│       │   │   ├── __init__.py
-│       │   │   └── formatters.py
-│       │   └── validation.py
-│       └── exceptions/
-│           ├── __init__.py
-│           └── GatewayValidationError.py
-├── tests/
-│   ├── __init__.py
-│   ├── validation/
-│   │   ├── __init__.py
-│   │   ├── test_adapters/
+├── src
+│   ├── apigateway
+│   │   ├── core
 │   │   │   ├── __init__.py
-│   │   │   ├── conftest.py
-│   │   │   ├── test_django.py
-│   │   │   ├── test_fastapi.py
-│   │   │   └── test_flask.py
-│   │   └── test_generic/
+│   │   │   ├── adapters
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── base_adapter.py
+│   │   │   │   ├── django.py
+│   │   │   │   ├── fastapi.py
+│   │   │   │   ├── flask.py
+│   │   │   │   └── generic.py
+│   │   │   ├── auth
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── auth.py
+│   │   │   ├── enums
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── validation_modes.py
+│   │   │   ├── errors
+│   │   │   │   ├── __init.py
+│   │   │   │   └── formatters.py
+│   │   │   └── validation
+│   │   │       ├── __init__.py
+│   │   │       ├── file_validation.py
+│   │   │       └── validation.py
+│   │   └── exceptions
+│   │       ├── AuthError.py
+│   │       ├── GatewayValidationError.py
 │   │       ├── __init__.py
-│   │       ├── test_error_handling.py
-│   │       ├── test_pre_post_validators.py
-│   │       └── test_strict_vs_lax.py
+│   └── apigateway.egg-info
+│       ├── PKG-INFO
+│       ├── SOURCES.txt
+│       ├── dependency_links.txt
+│       ├── requires.txt
+│       └── top_level.txt
+├── tests
+│   ├── __init__.py
+│   └── validation
+│       ├── __init__.py
+│       ├── test_adapters
+│       │   ├── __init__.py
+│       │   ├── conftest.py
+│       │   ├── test_django.py
+│       │   ├── test_fastapi.py
+│       │   └── test_flask.py
+│       └── test_generic
+│           ├── __init__.py
+│           ├── test_error_handling.py
+│           ├── test_pre_post_validators.py
+│           └── test_strict_vs_lax.py
 └── uv.lock
 
 ```
