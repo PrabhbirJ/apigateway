@@ -1,115 +1,28 @@
 """
-Comprehensive test suite for the authentication and authorization system.
+Comprehensive test suite for the RBAC-only authentication and authorization system.
 Tests every component, edge case, and security scenario.
 """
 import pytest
-import jwt
+import json
+import base64
 import time
-import os
 from unittest.mock import Mock, patch
 from datetime import datetime, timedelta
 
 from apigateway.core.auth.auth import (
-    JWTConfig, configure_jwt, get_jwt_config, authorize_request,
-    authorize_flask, authorize_django, authorize_fastapi, authorize_generic,
-    decode_jwt, has_required_roles
+    authorize_request, authorize_flask, authorize_django, authorize_fastapi, authorize_generic,
+    decode_token_payload, has_required_roles
 )
 from apigateway.exceptions.AuthError import (
     AuthError, AuthenticationError, AuthorizationError, TokenError
 )
 
 
-class TestJWTConfig:
-    """Test JWT configuration class"""
-    
-    def test_jwt_config_basic(self):
-        """Test basic JWT config creation"""
-        config = JWTConfig(secret="test-secret-32-characters-long!")
-        assert config.secret == "test-secret-32-characters-long!"
-        assert config.algorithm == "HS256"
-        assert config.verify_exp is True
-        assert config.leeway == 10
-    
-    def test_jwt_config_custom_params(self):
-        """Test JWT config with custom parameters"""
-        config = JWTConfig(
-            secret="custom-secret-key-32-chars-long!",
-            algorithm="HS512", 
-            verify_exp=False,
-            leeway=30
-        )
-        assert config.secret == "custom-secret-key-32-chars-long!"
-        assert config.algorithm == "HS512"
-        assert config.verify_exp is False
-        assert config.leeway == 30
-
-
-class TestGlobalJWTConfiguration:
-    """Test global JWT configuration management"""
-    
-    def setup_method(self):
-        """Reset global config before each test"""
-        # Reset global config
-        import apigateway.core.auth
-        apigateway.core.auth._jwt_config = None
-    
-    def test_configure_jwt_sets_global_config(self):
-        """Test that configure_jwt sets global configuration"""
-        configure_jwt(secret="test-secret-32-characters-long!")
-        
-        config = get_jwt_config()
-        assert config.secret == "test-secret-32-characters-long!"
-        assert config.algorithm == "HS256"
-    
-    def test_configure_jwt_with_custom_params(self):
-        """Test configure_jwt with custom parameters"""
-        configure_jwt(
-            secret="custom-secret-32-characters-long!",
-            algorithm="HS512",
-            verify_exp=False,
-            leeway=60
-        )
-        
-        config = get_jwt_config()
-        assert config.algorithm == "HS512"
-        assert config.verify_exp is False
-        assert config.leeway == 60
-    
-    def test_debug_jwt_config(self, monkeypatch):
-        """Debug what actually happens"""
-        # Clear environment
-        monkeypatch.delenv('JWT_SECRET', raising=False)
-        monkeypatch.delenv('JWT_SECRET_KEY', raising=False) 
-        monkeypatch.delenv('SECRET_KEY', raising=False)
-        
-        # Reset the global config
-        import apigateway.core.auth.auth
-        apigateway.core.auth.auth._jwt_config = None
-        
-        try:
-            config = get_jwt_config()
-            print(f"Config created: {config}")
-            print(f"Secret: {config.secret}")
-        except Exception as e:
-            print(f"Exception: {type(e).__name__}: {e}")
-    
-    def test_multiple_configure_jwt_calls_override(self):
-        """Test that multiple configure_jwt calls override previous config"""
-        configure_jwt(secret="first-secret-32-characters-long!")
-        configure_jwt(secret="second-secret-32-characters-long!")
-        
-        config = get_jwt_config()
-        assert config.secret == "second-secret-32-characters-long!"
-
-
-class TestJWTDecoding:
-    """Test JWT token decoding and validation"""
+class TestTokenPayloadDecoding:
+    """Test JWT payload decoding without verification"""
     
     def setup_method(self):
         """Setup for each test"""
-        self.secret = "test-secret-key-32-characters-long!"
-        self.config = JWTConfig(secret=self.secret)
-        
         # Valid payload
         self.payload = {
             "sub": "user123",
@@ -117,16 +30,33 @@ class TestJWTDecoding:
             "email": "test@example.com",
             "roles": ["user", "admin"],
             "permissions": ["read", "write"],
-            "exp": int(time.time()) + 3600,  # Expires in 1 hour
+            "exp": int(time.time()) + 3600,  # Expires in 1 hour (ignored)
             "iat": int(time.time())
         }
         
-        # Create valid token
-        self.valid_token = jwt.encode(self.payload, self.secret, algorithm="HS256")
+        # Create token manually (just for payload structure)
+        self.valid_token = self._create_test_token(self.payload)
     
-    def test_decode_valid_jwt_success(self):
-        """Test decoding valid JWT returns correct user data"""
-        user_data = decode_jwt(self.valid_token, self.config)
+    def _create_test_token(self, payload):
+        """Create test JWT token with proper structure"""
+        import json
+        import base64
+        
+        # Header (doesn't matter for our RBAC-only approach)
+        header = {"typ": "JWT", "alg": "HS256"}
+        
+        # Encode header and payload
+        header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+        payload_encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
+        
+        # Fake signature (doesn't matter since we don't verify)
+        signature = "fake_signature_here"
+        
+        return f"{header_encoded}.{payload_encoded}.{signature}"
+    
+    def test_decode_valid_token_payload_success(self):
+        """Test decoding valid token payload returns correct user data"""
+        user_data = decode_token_payload(self.valid_token)
         
         assert user_data['user_id'] == "user123"
         assert user_data['username'] == "testuser"
@@ -135,15 +65,15 @@ class TestJWTDecoding:
         assert user_data['permissions'] == ["read", "write"]
         assert user_data['token_payload']['sub'] == "user123"
     
-    def test_decode_jwt_minimal_payload(self):
-        """Test decoding JWT with minimal payload"""
+    def test_decode_token_minimal_payload(self):
+        """Test decoding token with minimal payload"""
         minimal_payload = {
             "sub": "user456",
-            "exp": int(time.time()) + 3600
+            "exp": int(time.time()) + 3600  # This will be ignored
         }
-        token = jwt.encode(minimal_payload, self.secret, algorithm="HS256")
+        token = self._create_test_token(minimal_payload)
         
-        user_data = decode_jwt(token, self.config)
+        user_data = decode_token_payload(token)
         
         assert user_data['user_id'] == "user456"
         assert user_data['username'] is None
@@ -151,67 +81,58 @@ class TestJWTDecoding:
         assert user_data['roles'] == []
         assert user_data['permissions'] == []
     
-    def test_decode_jwt_expired_token_raises_error(self):
-        """Test that expired JWT raises TokenError"""
+    def test_decode_token_with_expired_payload(self):
+        """Test that expired payload is decoded anyway (no verification)"""
         expired_payload = {
             "sub": "user123",
-            "exp": int(time.time()) - 3600,  # Expired 1 hour ago
-            "iat": int(time.time()) - 7200   # Issued 2 hours ago
+            "exp": int(time.time()) - 3600,  # Expired 1 hour ago (ignored)
+            "iat": int(time.time()) - 7200   # Issued 2 hours ago (ignored)
         }
-        expired_token = jwt.encode(expired_payload, self.secret, algorithm="HS256")
+        token = self._create_test_token(expired_payload)
         
-        with pytest.raises(TokenError, match="Token has expired"):
-            decode_jwt(expired_token, self.config)
+        # Should succeed because we don't verify expiration
+        user_data = decode_token_payload(token)
+        assert user_data['user_id'] == "user123"
     
-    def test_decode_jwt_invalid_signature_raises_error(self):
-        """Test that JWT with wrong signature raises TokenError"""
-        wrong_secret = "wrong-secret-32-characters-long!"
-        token_wrong_sig = jwt.encode(self.payload, wrong_secret, algorithm="HS256")
-        
-        with pytest.raises(TokenError, match="Invalid token signature"):
-            decode_jwt(token_wrong_sig, self.config)
-    
-    def test_decode_jwt_malformed_token_raises_error(self):
-        """Test that malformed JWT raises TokenError"""
+    def test_decode_token_malformed_token_raises_error(self):
+        """Test that malformed tokens raise TokenError"""
         malformed_tokens = [
             "not.a.jwt",
             "malformed",
             "",
             None,
-            "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.malformed.signature"
+            "only.two.parts",
+            "one",
+            "too.many.parts.here.extra"
         ]
         
         for bad_token in malformed_tokens:
-            with pytest.raises(TokenError, match="Invalid token"):
-                decode_jwt(bad_token, self.config)
+            with pytest.raises(TokenError):
+                decode_token_payload(bad_token)
     
-    def test_decode_jwt_with_leeway(self):
-        """Test JWT decoding with expiration leeway"""
-        # Token expired 5 seconds ago, but leeway is 10 seconds
-        barely_expired_payload = {
-            "sub": "user123",
-            "exp": int(time.time()) - 5,  # Expired 5 seconds ago
-            "iat": int(time.time()) - 3605
-        }
-        token = jwt.encode(barely_expired_payload, self.secret, algorithm="HS256")
+    def test_decode_token_invalid_base64_raises_error(self):
+        """Test that invalid base64 payload raises TokenError"""
+        # Create token with invalid base64 payload
+        header = base64.urlsafe_b64encode(json.dumps({"typ": "JWT"}).encode()).decode().rstrip('=')
+        invalid_payload = "invalid_base64_here!"
+        signature = "fake_sig"
         
-        # Should succeed due to leeway
-        user_data = decode_jwt(token, self.config)
-        assert user_data['user_id'] == "user123"
+        bad_token = f"{header}.{invalid_payload}.{signature}"
+        
+        with pytest.raises(TokenError, match="Failed to decode token payload"):
+            decode_token_payload(bad_token)
     
-    def test_decode_jwt_verify_exp_disabled(self):
-        """Test JWT decoding with expiration verification disabled"""
-        config = JWTConfig(secret=self.secret, verify_exp=False)
+    def test_decode_token_invalid_json_raises_error(self):
+        """Test that invalid JSON in payload raises TokenError"""
+        # Create token with invalid JSON payload
+        header = base64.urlsafe_b64encode(json.dumps({"typ": "JWT"}).encode()).decode().rstrip('=')
+        invalid_json = base64.urlsafe_b64encode(b'{"invalid": json}').decode().rstrip('=')
+        signature = "fake_sig"
         
-        expired_payload = {
-            "sub": "user123",
-            "exp": int(time.time()) - 3600,  # Expired
-        }
-        token = jwt.encode(expired_payload, self.secret, algorithm="HS256")
+        bad_token = f"{header}.{invalid_json}.{signature}"
         
-        # Should succeed because exp verification is disabled
-        user_data = decode_jwt(token, config)
-        assert user_data['user_id'] == "user123"
+        with pytest.raises(TokenError, match="Failed to decode token payload"):
+            decode_token_payload(bad_token)
 
 
 class TestRoleValidation:
@@ -258,6 +179,17 @@ class TestRoleValidation:
         required_roles = ["ADMIN"]  # Different case
         
         assert has_required_roles(user_roles, required_roles) is False
+    
+    def test_has_required_roles_none_values(self):
+        """Test role validation handles None values gracefully"""
+        # Test None user roles
+        assert has_required_roles(None, ["admin"]) is False
+        
+        # Test None required roles  
+        assert has_required_roles(["user"], None) is False
+        
+        # Test both None
+        assert has_required_roles(None, None) is False
 
 
 class TestAuthorizationDecorator:
@@ -265,41 +197,38 @@ class TestAuthorizationDecorator:
     
     def setup_method(self):
         """Setup for each test"""
-        # Configure JWT
-        configure_jwt(secret="test-secret-32-characters-long!")
-        
-        # Create valid token
-        payload = {
+        # Create test tokens with different roles
+        self.admin_payload = {
             "sub": "user123",
             "username": "testuser",
             "roles": ["user", "admin"],
             "exp": int(time.time()) + 3600
         }
-        self.valid_token = jwt.encode(
-            payload, 
-            "test-secret-32-characters-long!", 
-            algorithm="HS256"
-        )
+        self.admin_token = self._create_test_token(self.admin_payload)
         
-        # Create token with different roles
-        basic_payload = {
+        self.basic_payload = {
             "sub": "user456", 
             "username": "basicuser",
             "roles": ["user"],
             "exp": int(time.time()) + 3600
         }
-        self.basic_user_token = jwt.encode(
-            basic_payload,
-            "test-secret-32-characters-long!",
-            algorithm="HS256"
-        )
+        self.basic_user_token = self._create_test_token(self.basic_payload)
+    
+    def _create_test_token(self, payload):
+        """Create test JWT token with proper structure"""
+        header = {"typ": "JWT", "alg": "HS256"}
+        
+        header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+        payload_encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
+        signature = "fake_signature"
+        
+        return f"{header_encoded}.{payload_encoded}.{signature}"
     
     def test_authorize_generic_no_roles_required_success(self):
-        """Test authorization with no roles required (just authentication)"""
-        
+        """Test authorization with no roles required (just token presence)"""
         # Mock adapter that returns our token
         mock_adapter = Mock()
-        mock_adapter.extract_auth_token.return_value = self.valid_token
+        mock_adapter.extract_auth_token.return_value = self.admin_token
         
         @authorize_request(required_roles=None, adapter=mock_adapter)  
         def test_function(user=None):
@@ -310,9 +239,8 @@ class TestAuthorizationDecorator:
     
     def test_authorize_generic_with_required_roles_success(self):
         """Test authorization with required roles - success case"""
-        
         mock_adapter = Mock()
-        mock_adapter.extract_auth_token.return_value = self.valid_token
+        mock_adapter.extract_auth_token.return_value = self.admin_token
         
         @authorize_request(required_roles=["admin"], adapter=mock_adapter)
         def admin_function(user):
@@ -323,7 +251,6 @@ class TestAuthorizationDecorator:
     
     def test_authorize_generic_insufficient_roles_fails(self):
         """Test authorization fails when user lacks required roles"""
-        
         mock_adapter = Mock()
         mock_adapter.extract_auth_token.return_value = self.basic_user_token  # Only has 'user' role
         mock_adapter.handle_auth_error.return_value = {"error": "Access denied"}
@@ -338,7 +265,6 @@ class TestAuthorizationDecorator:
     
     def test_authorize_generic_no_token_fails(self):
         """Test authorization fails when no token provided"""
-        
         mock_adapter = Mock()
         mock_adapter.extract_auth_token.return_value = None
         mock_adapter.handle_auth_error.return_value = {"error": "No token"}
@@ -353,7 +279,6 @@ class TestAuthorizationDecorator:
     
     def test_authorize_generic_invalid_token_fails(self):
         """Test authorization fails with invalid token"""
-        
         mock_adapter = Mock()
         mock_adapter.extract_auth_token.return_value = "invalid.token.here"
         mock_adapter.handle_auth_error.return_value = {"error": "Invalid token"}
@@ -368,9 +293,8 @@ class TestAuthorizationDecorator:
     
     def test_authorize_generic_user_injection(self):
         """Test that user data is properly injected into kwargs"""
-        
         mock_adapter = Mock()
-        mock_adapter.extract_auth_token.return_value = self.valid_token
+        mock_adapter.extract_auth_token.return_value = self.admin_token
         
         @authorize_request(required_roles=["user"], adapter=mock_adapter)
         def test_function(user):
@@ -389,7 +313,6 @@ class TestAuthorizationDecorator:
     
     def test_authorize_generic_multiple_required_roles(self):
         """Test authorization with multiple required roles (OR logic)"""
-        
         mock_adapter = Mock()
         mock_adapter.extract_auth_token.return_value = self.basic_user_token  # Has 'user' role
         
@@ -399,6 +322,21 @@ class TestAuthorizationDecorator:
         
         result = multi_role_function()
         assert result == {"allowed": True, "user": "basicuser"}
+    
+    def test_decorator_with_existing_user_kwarg(self):
+        """Test decorator doesn't override existing 'user' parameter"""
+        mock_adapter = Mock()
+        mock_adapter.extract_auth_token.return_value = self.admin_token
+        
+        @authorize_request(required_roles=["user"], adapter=mock_adapter)
+        def test_function(user="existing_user"):
+            return {"user": user}
+        
+        # Call with existing user parameter
+        result = test_function(user="passed_user")
+        
+        # Should keep the passed user, not inject token user
+        assert result == {"user": "passed_user"}
 
 
 class TestAsyncAuthorization:
@@ -406,24 +344,24 @@ class TestAsyncAuthorization:
     
     def setup_method(self):
         """Setup for async tests"""
-        configure_jwt(secret="test-secret-32-characters-long!")
-        
         payload = {
             "sub": "async_user",
             "username": "asynctest",
             "roles": ["user"],
             "exp": int(time.time()) + 3600
         }
-        self.async_token = jwt.encode(
-            payload,
-            "test-secret-32-characters-long!",
-            algorithm="HS256"
-        )
+        self.async_token = self._create_test_token(payload)
+    
+    def _create_test_token(self, payload):
+        """Create test JWT token"""
+        header = {"typ": "JWT", "alg": "HS256"}
+        header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+        payload_encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
+        return f"{header_encoded}.{payload_encoded}.fake_sig"
     
     @pytest.mark.asyncio
     async def test_authorize_async_function_success(self):
         """Test authorization decorator works with async functions"""
-        
         mock_adapter = Mock()
         mock_adapter.extract_auth_token.return_value = self.async_token
         
@@ -437,7 +375,6 @@ class TestAsyncAuthorization:
     @pytest.mark.asyncio
     async def test_authorize_async_function_auth_failure(self):
         """Test async authorization failure handling"""
-        
         mock_adapter = Mock()
         mock_adapter.extract_auth_token.return_value = None
         mock_adapter.handle_auth_error.return_value = {"error": "Async auth failed"}
@@ -453,13 +390,8 @@ class TestAsyncAuthorization:
 class TestFrameworkConvenienceFunctions:
     """Test framework-specific convenience functions"""
     
-    def setup_method(self):
-        """Setup for framework tests"""
-        configure_jwt(secret="test-secret-32-characters-long!")
-    
     def test_authorize_flask_creates_flask_adapter(self):
         """Test that authorize_flask uses FlaskAdapter"""
-        
         with patch('apigateway.core.auth.auth.authorize_request') as mock_authorize:
             mock_authorize.return_value = lambda f: f  # Return function unchanged
             
@@ -477,7 +409,6 @@ class TestFrameworkConvenienceFunctions:
     
     def test_authorize_django_creates_django_adapter(self):
         """Test that authorize_django uses DjangoAdapter"""
-        
         with patch('apigateway.core.auth.auth.authorize_request') as mock_authorize:
             mock_authorize.return_value = lambda f: f
             
@@ -494,7 +425,6 @@ class TestFrameworkConvenienceFunctions:
     
     def test_authorize_fastapi_creates_fastapi_adapter(self):
         """Test that authorize_fastapi uses FastAPIAdapter"""
-        
         with patch('apigateway.core.auth.auth.authorize_request') as mock_authorize:
             mock_authorize.return_value = lambda f: f
             
@@ -511,127 +441,42 @@ class TestFrameworkConvenienceFunctions:
 
 
 class TestSecurityScenarios:
-    """Test various security attack scenarios"""
+    """Test various security scenarios for RBAC"""
     
-    def setup_method(self):
-        """Setup security tests"""
-        self.secret = "test-secret-32-characters-long!"
-        configure_jwt(secret=self.secret)
+    def test_token_payload_tampering_allowed(self):
+        """Test that payload tampering is allowed since we don't verify signatures"""
+        # Create token with user role
+        original_payload = {"sub": "user123", "roles": ["user"]}
+        
+        # Manually create tampered token with admin role
+        tampered_payload = {"sub": "user123", "roles": ["admin"]}
+        
+        header = {"typ": "JWT", "alg": "HS256"}
+        header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+        payload_encoded = base64.urlsafe_b64encode(json.dumps(tampered_payload).encode()).decode().rstrip('=')
+        tampered_token = f"{header_encoded}.{payload_encoded}.fake_sig"
+        
+        # Should succeed because we don't verify signatures - this is by design!
+        user_data = decode_token_payload(tampered_token)
+        assert user_data['roles'] == ["admin"]  # Tampered role is accepted
     
-    def test_jwt_algorithm_confusion_attack_prevention(self):
-        """Test prevention of algorithm confusion attacks"""
+    def test_role_escalation_in_payload(self):
+        """Test that role escalation in payload works (no verification)"""
+        # This demonstrates why this approach requires trusted upstream auth
+        payload = {"sub": "attacker", "roles": ["admin", "superuser", "god_mode"]}
         
-        # Attacker tries to use 'none' algorithm
-        header = {"typ": "JWT", "alg": "none"}
-        payload = {"sub": "attacker", "roles": ["admin"]}
-        
-        import base64
-        import json
-        
-        # Create token with 'none' algorithm
+        header = {"typ": "JWT", "alg": "HS256"}
         header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
         payload_encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
-        malicious_token = f"{header_encoded}.{payload_encoded}."
+        malicious_token = f"{header_encoded}.{payload_encoded}.fake_sig"
         
-        config = JWTConfig(secret=self.secret)
+        # This will work because we trust the payload
+        user_data = decode_token_payload(malicious_token)
+        assert "admin" in user_data['roles']
+        assert "superuser" in user_data['roles']
+        assert "god_mode" in user_data['roles']
         
-        # Should fail - we only accept HS256
-        with pytest.raises(TokenError):
-            decode_jwt(malicious_token, config)
-    
-    def test_jwt_signature_tampering_detection(self):
-        """Test that signature tampering is detected"""
-        
-        # Create valid token
-        payload = {"sub": "user123", "roles": ["user"], "exp": int(time.time()) + 3600}
-        valid_token = jwt.encode(payload, self.secret, algorithm="HS256")
-        
-        # Tamper with the signature more clearly
-        parts = valid_token.split('.')
-        
-        # Method 1: Change the last character of signature
-        if len(parts[2]) > 0:
-            tampered_signature = parts[2][:-1] + ('X' if parts[2][-1] != 'X' else 'Y')
-        else:
-            tampered_signature = 'INVALID'
-        
-        tampered_token = f"{parts[0]}.{parts[1]}.{tampered_signature}"
-        
-        config = JWTConfig(secret=self.secret)
-        
-        # This should raise TokenError due to signature mismatch
-        with pytest.raises(TokenError, match="Invalid token"):  # Broaden the match pattern
-            decode_jwt(tampered_token, config)
-    def test_jwt_payload_tampering_detection(self):
-        """Test that payload tampering is detected"""
-        
-        # Create token with user role
-        original_payload = {"sub": "user123", "roles": ["user"], "exp": int(time.time()) + 3600}
-        token = jwt.encode(original_payload, self.secret, algorithm="HS256")
-        
-        # Try to tamper with payload to escalate privileges
-        parts = token.split('.')
-        
-        # Decode payload, modify it, encode it back
-        import base64
-        import json
-        
-        # Add padding if needed
-        payload_b64 = parts[1] + '=' * (4 - len(parts[1]) % 4)
-        decoded_payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-        
-        # Escalate role
-        decoded_payload["roles"] = ["admin"]
-        
-        # Re-encode
-        new_payload_b64 = base64.urlsafe_b64encode(json.dumps(decoded_payload).encode()).decode().rstrip('=')
-        tampered_token = f"{parts[0]}.{new_payload_b64}.{parts[2]}"
-        
-        config = JWTConfig(secret=self.secret)
-        
-        # Should fail due to signature mismatch
-        with pytest.raises(TokenError, match="Invalid token signature"):
-            decode_jwt(tampered_token, config)
-    
-    def test_replay_attack_with_expired_token(self):
-        """Test that expired tokens cannot be replayed"""
-        
-        # Create token that expires immediately
-        payload = {
-            "sub": "user123",
-            "roles": ["admin"],
-            "exp": int(time.time()) - 3600,  # 1 hour ago (definitely expired)
-            "iat": int(time.time()) - 7200   # 2 hours ago
-        }
-        expired_token = jwt.encode(payload, self.secret, algorithm="HS256")
-        
-        config = JWTConfig(secret=self.secret)
-        
-        with pytest.raises(TokenError, match="Token has expired"):
-            decode_jwt(expired_token, config)
-    
-    def test_jwt_secret_brute_force_resistance(self):
-        """Test that weak secrets are rejected (if implemented)"""
-        
-        # This test would require implementing secret strength validation
-        # For now, we test that different secrets produce different results
-        
-        payload = {"sub": "user123", "roles": ["user"]}
-        
-        secret1 = "secret1-32-characters-long-enough!"
-        secret2 = "secret2-32-characters-long-enough!"
-        
-        token1 = jwt.encode(payload, secret1, algorithm="HS256")
-        token2 = jwt.encode(payload, secret2, algorithm="HS256")
-        
-        # Same payload, different secrets should produce different tokens
-        assert token1 != token2
-        
-        # Token created with secret1 should not verify with secret2
-        config2 = JWTConfig(secret=secret2)
-        
-        with pytest.raises(TokenError, match="Invalid token signature"):
-            decode_jwt(token1, config2)
+        # This is why upstream authentication MUST be trusted!
 
 
 class TestErrorHandling:
@@ -639,7 +484,6 @@ class TestErrorHandling:
     
     def test_auth_error_hierarchy(self):
         """Test that error classes have proper inheritance"""
-        
         auth_error = AuthError("Test error")
         assert isinstance(auth_error, Exception)
         
@@ -654,7 +498,6 @@ class TestErrorHandling:
     
     def test_auth_error_serialization(self):
         """Test that auth errors serialize properly"""
-        
         error = AuthenticationError("Token required", [{"field": "token", "message": "missing"}])
         
         assert error.message == "Token required"
@@ -665,47 +508,13 @@ class TestErrorHandling:
         error_str = str(error)
         assert "AUTHENTICATION_REQUIRED" in error_str
         assert "Token required" in error_str
-    
-    def test_token_error_types(self):
-        """Test different token error scenarios"""
-        
-        # Test each specific token error type
-        errors = [
-            ("Token has expired", jwt.ExpiredSignatureError()),
-            ("Invalid token signature", jwt.InvalidSignatureError()),
-            ("Invalid token: malformed", jwt.DecodeError("malformed"))
-        ]
-        
-        configure_jwt(secret="test-secret-32-characters-long!")
-        
-        for expected_msg, jwt_exception in errors:
-            with patch('jwt.decode', side_effect=jwt_exception):
-                with pytest.raises(TokenError, match=expected_msg.split(':')[0]):
-                    decode_jwt("dummy.token.here", get_jwt_config())
 
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions"""
     
-    def setup_method(self):
-        """Setup edge case tests"""
-        configure_jwt(secret="test-secret-32-characters-long!")
-    
-    def test_role_validation_with_none_values(self):
-        """Test role validation handles None values gracefully"""
-        
-        # Test None user roles
-        assert has_required_roles(None, ["admin"]) is False
-        
-        # Test None required roles  
-        assert has_required_roles(["user"], None) is False
-        
-        # Test both None
-        assert has_required_roles(None, None) is False
-    
-    def test_jwt_with_unicode_characters(self):
-        """Test JWT handling with unicode characters"""
-        
+    def test_token_with_unicode_characters(self):
+        """Test token handling with unicode characters"""
         payload = {
             "sub": "user123",
             "username": "用户",  # Chinese characters
@@ -714,17 +523,18 @@ class TestEdgeCases:
             "exp": int(time.time()) + 3600
         }
         
-        token = jwt.encode(payload, "test-secret-32-characters-long!", algorithm="HS256")
-        config = JWTConfig(secret="test-secret-32-characters-long!")
+        header = {"typ": "JWT", "alg": "HS256"}
+        header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+        payload_encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
+        token = f"{header_encoded}.{payload_encoded}.fake_sig"
         
-        user_data = decode_jwt(token, config)
+        user_data = decode_token_payload(token)
         assert user_data['username'] == "用户"
         assert user_data['email'] == "test@münchen.de"
         assert user_data['roles'] == ["ユーザー"]
     
-    def test_jwt_with_very_large_payload(self):
-        """Test JWT with large payload (near size limits)"""
-        
+    def test_token_with_very_large_payload(self):
+        """Test token with large payload (near size limits)"""
         # Create large role list
         large_roles = [f"role_{i}" for i in range(1000)]
         
@@ -734,29 +544,116 @@ class TestEdgeCases:
             "exp": int(time.time()) + 3600
         }
         
-        token = jwt.encode(payload, "test-secret-32-characters-long!", algorithm="HS256")
-        config = JWTConfig(secret="test-secret-32-characters-long!")
+        header = {"typ": "JWT", "alg": "HS256"}
+        header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+        payload_encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
+        token = f"{header_encoded}.{payload_encoded}.fake_sig"
         
-        user_data = decode_jwt(token, config)
+        user_data = decode_token_payload(token)
         assert len(user_data['roles']) == 1000
         assert "role_999" in user_data['roles']
     
-    def test_decorator_with_existing_user_kwarg(self):
-        """Test decorator doesn't override existing 'user' parameter"""
+    def test_empty_roles_in_payload(self):
+        """Test token with empty roles"""
+        payload = {
+            "sub": "user123",
+            "roles": [],  # Empty roles
+            "exp": int(time.time()) + 3600
+        }
+        
+        header = {"typ": "JWT", "alg": "HS256"}
+        header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+        payload_encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
+        token = f"{header_encoded}.{payload_encoded}.fake_sig"
+        
+        user_data = decode_token_payload(token)
+        assert user_data['roles'] == []
+        
+        # Should fail role check
+        assert has_required_roles(user_data['roles'], ["admin"]) is False
+    
+    def test_missing_roles_field_in_payload(self):
+        """Test token without roles field"""
+        payload = {
+            "sub": "user123",
+            "username": "testuser",
+            # No roles field
+            "exp": int(time.time()) + 3600
+        }
+        
+        header = {"typ": "JWT", "alg": "HS256"}
+        header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+        payload_encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip('=')
+        token = f"{header_encoded}.{payload_encoded}.fake_sig"
+        
+        user_data = decode_token_payload(token)
+        assert user_data['roles'] == []  # Should default to empty list
+        
+        # Should fail role check
+        assert has_required_roles(user_data['roles'], ["admin"]) is False
+
+
+class TestIntegrationScenarios:
+    """Test realistic integration scenarios"""
+    
+    def test_microservice_rbac_flow(self):
+        """Test typical microservice RBAC flow"""
+        # Simulate token that came from API Gateway (already authenticated)
+        gateway_token_payload = {
+            "sub": "authenticated_user_123",
+            "username": "service_user",
+            "roles": ["service_reader", "data_processor"],
+            "service": "payment_processor",
+            "exp": int(time.time()) + 3600  # Ignored
+        }
+        
+        header = {"typ": "JWT", "alg": "HS256"}
+        header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+        payload_encoded = base64.urlsafe_b64encode(json.dumps(gateway_token_payload).encode()).decode().rstrip('=')
+        token = f"{header_encoded}.{payload_encoded}.trusted_gateway_signature"
+        
+        # Mock adapter
+        mock_adapter = Mock()
+        mock_adapter.extract_auth_token.return_value = token
+        
+        # Service endpoint that requires data_processor role
+        @authorize_request(required_roles=["data_processor"], adapter=mock_adapter)
+        def process_payment_data(user):
+            return {
+                "processed": True,
+                "processor": user['username'],
+                "service": user['token_payload'].get('service')
+            }
+        
+        result = process_payment_data()
+        assert result["processed"] is True
+        assert result["processor"] == "service_user"
+        assert result["service"] == "payment_processor"
+    
+    def test_multi_role_service_access(self):
+        """Test service with multiple role requirements"""
+        # User with mixed roles
+        user_payload = {
+            "sub": "user_456",
+            "username": "admin_user",
+            "roles": ["user", "admin", "auditor"],
+            "department": "security"
+        }
+        
+        header = {"typ": "JWT", "alg": "HS256"}
+        header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip('=')
+        payload_encoded = base64.urlsafe_b64encode(json.dumps(user_payload).encode()).decode().rstrip('=')
+        token = f"{header_encoded}.{payload_encoded}.sig"
         
         mock_adapter = Mock()
-        payload = {"sub": "token_user", "roles": ["user"], "exp": int(time.time()) + 3600}
-        mock_adapter.extract_auth_token.return_value = jwt.encode(
-            payload, "test-secret-32-characters-long!", algorithm="HS256"
-        )
+        mock_adapter.extract_auth_token.return_value = token
         
-        @authorize_request(required_roles=["user"], adapter=mock_adapter)
-        def test_function(user="existing_user"):
-            return {"user": user}
+        # Endpoint requiring admin OR auditor role
+        @authorize_request(required_roles=["admin", "auditor"], adapter=mock_adapter)
+        def sensitive_operation(user):
+            return {"access_granted": True, "user_roles": user['roles']}
         
-        # Call with existing user parameter
-        result = test_function(user="passed_user")
-        
-        # Should keep the passed user, not inject token user
-        assert result == {"user": "passed_user"}
-
+        result = sensitive_operation()
+        assert result["access_granted"] is True
+        assert "admin" in result["user_roles"]
+        assert "auditor" in result["user_roles"]

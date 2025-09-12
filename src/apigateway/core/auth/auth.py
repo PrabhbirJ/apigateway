@@ -1,6 +1,7 @@
 # core/auth.py
 import inspect
-import jwt
+import json
+import base64
 from functools import wraps
 from typing import Callable, Dict, Any, List, Optional
 from apigateway.core.adapters.base_adapter import FrameworkAdapter
@@ -11,64 +12,26 @@ from apigateway.core.adapters.generic import GenericAdapter
 from apigateway.exceptions.AuthError import AuthError, AuthenticationError, AuthorizationError, TokenError
 
 
-class JWTConfig:
-    """JWT Configuration"""
-    def __init__(self, 
-                 secret: str,
-                 algorithm: str = "HS256",
-                 verify_exp: bool = True,
-                 leeway: int = 10):
-        self.secret = secret
-        self.algorithm = algorithm
-        self.verify_exp = verify_exp
-        self.leeway = leeway
-
-
-# Global JWT config - set this once in your app initialization
-_jwt_config: Optional[JWTConfig] = None
-
-
-def configure_jwt(secret: str, algorithm: str = "HS256", verify_exp: bool = True, leeway: int = 10):
-    """Configure JWT settings globally"""
-    global _jwt_config
-    _jwt_config = JWTConfig(secret, algorithm, verify_exp, leeway)
-
-
-def get_jwt_config() -> JWTConfig:
-    """Get current JWT configuration"""
-    if _jwt_config is None:
-        raise RuntimeError(
-            "JWT not configured. Call configure_jwt(secret='your-secret') before using auth decorators"
-        )
-    return _jwt_config
-
-
 def authorize_request(
     required_roles: Optional[List[str]] = None,
     adapter: Optional[FrameworkAdapter] = None,
-    jwt_config: Optional[JWTConfig] = None,
 ):
     """
-    Framework-agnostic authorization decorator
+    Framework-agnostic RBAC authorization decorator
     
     Args:
         required_roles: List of roles required to access this endpoint
         adapter: Framework adapter (if None, uses GenericAdapter)
-        jwt_config: JWT configuration (if None, uses global config)
     
     Pipeline:
-        extract_token → decode_jwt → extract_roles → check_roles → function
+        extract_token → decode_payload → extract_roles → check_roles → function
     """
     
     # Use GenericAdapter if no adapter specified
     if adapter is None:
         adapter = GenericAdapter()
     
-    # Use global JWT config if none provided
-    if jwt_config is None:
-        jwt_config = get_jwt_config()
-    
-    # Default to empty list if no roles required (just check authentication)
+    # Default to empty list if no roles required (just check token presence)
     required_roles = required_roles or []
     
     def decorator(func: Callable):
@@ -82,10 +45,10 @@ def authorize_request(
                 if not token:
                     raise AuthenticationError("No authentication token provided")
                 
-                # Step 2: Decode and validate JWT
-                user_data = decode_jwt(token, jwt_config)
+                # Step 2: Decode payload without verification
+                user_data = decode_token_payload(token)
                 
-                # Step 3: Extract roles from JWT payload
+                # Step 3: Extract roles from payload
                 user_roles = user_data.get('roles', [])
                 
                 # Step 4: Check if user has required roles
@@ -94,7 +57,7 @@ def authorize_request(
                         f"Access denied. Required roles: {required_roles}, User roles: {user_roles}"
                     )
                 
-                # Step 5: Inject user data into kwargs (similar to validation)
+                # Step 5: Inject user data into kwargs
                 if 'user' not in kwargs:
                     kwargs['user'] = user_data
                 
@@ -111,7 +74,7 @@ def authorize_request(
                 if not token:
                     raise AuthenticationError("No authentication token provided")
                 
-                user_data = decode_jwt(token, jwt_config)
+                user_data = decode_token_payload(token)
                 user_roles = user_data.get('roles', [])
                 
                 if required_roles and not has_required_roles(user_roles, required_roles):
@@ -131,17 +94,29 @@ def authorize_request(
     return decorator
 
 
-def decode_jwt(token: str, jwt_config: JWTConfig) -> Dict[str, Any]:
-    """Decode and validate JWT token"""
+def decode_token_payload(token: str) -> Dict[str, Any]:
+    """
+    Decode JWT payload WITHOUT verification - RBAC only
+    
+    WARNING: This does NOT validate the token signature or expiration.
+    Only use this when authentication is handled elsewhere and you only need RBAC.
+    """
     try:
-        # Decode JWT with validation
-        payload = jwt.decode(
-            token,
-            jwt_config.secret,
-            algorithms=[jwt_config.algorithm],
-            options={"verify_exp": jwt_config.verify_exp},
-            leeway=jwt_config.leeway
-        )
+        # Split JWT token (header.payload.signature)
+        parts = token.split('.')
+        if len(parts) != 3:
+            raise TokenError("Invalid token format - must have 3 parts")
+        
+        # Decode payload (second part)
+        payload_part = parts[1]
+        
+        # Add padding if needed for base64 decoding
+        padding = '=' * (4 - len(payload_part) % 4)
+        payload_part += padding
+        
+        # Decode base64 payload
+        payload_bytes = base64.urlsafe_b64decode(payload_part)
+        payload = json.loads(payload_bytes.decode('utf-8'))
         
         # Extract standard user data
         return {
@@ -153,22 +128,20 @@ def decode_jwt(token: str, jwt_config: JWTConfig) -> Dict[str, Any]:
             'token_payload': payload  # Full payload for custom claims
         }
         
-    except jwt.ExpiredSignatureError:
-        raise TokenError("Token has expired")
-    except jwt.InvalidSignatureError:
-        raise TokenError("Invalid token signature")
-    except jwt.InvalidTokenError as e:
+    except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise TokenError(f"Failed to decode token payload: {str(e)}")
+    except Exception as e:
         raise TokenError(f"Invalid token: {str(e)}")
 
 
 def has_required_roles(user_roles: List[str], required_roles: List[str]) -> bool:
+    """Check if user has at least one of the required roles"""
     if not user_roles or not required_roles:
         return False
-    """Check if user has at least one of the required roles"""
     return any(role in user_roles for role in required_roles)
 
 
-# Convenience functions for different frameworks (same pattern as validation.py)
+# Convenience functions for different frameworks
 def authorize_flask(required_roles: Optional[List[str]] = None, **kwargs):
     """Convenience function for Flask"""
     return authorize_request(required_roles, adapter=FlaskAdapter(), **kwargs)
@@ -191,49 +164,54 @@ def authorize_generic(required_roles: Optional[List[str]] = None, **kwargs):
 
 # Usage Examples:
 """
-# SECURE: Environment-based configuration (RECOMMENDED):
-# Set environment variable:
-# export JWT_SECRET="your-very-long-secret-key-at-least-32-chars"
+# RBAC-only authorization (no JWT verification):
 
-# Option 1: Auto-configure from environment (zero-config)
-@authorize_flask(['admin'])  # Automatically loads JWT_SECRET from env
-def admin_endpoint():
-    pass
-
-# Option 2: Explicit configuration (still loads from env if secret not provided)
-from apigateway.core.auth import configure_jwt
-configure_jwt()  # Loads from JWT_SECRET environment variable
-# OR
-configure_jwt(secret=os.getenv('JWT_SECRET'))  # Explicit env loading
-
-# INSECURE: Hardcoded secret (NOT RECOMMENDED - only for testing):
-configure_jwt(secret="your-secret-key-for-development-only")
-
-# Framework examples with environment-based config:
-@authorize_flask()  # Any authenticated user
+@authorize_flask()  # Any user with a token (no role check)
 def protected_endpoint(user):
     return {"user_id": user['user_id']}
 
-@authorize_flask(['admin'])  # Admin only
+@authorize_flask(['admin'])  # Admin role required
 def admin_only(user):
     return {"admin": user['username']}
 
-@authorize_fastapi(['admin', 'moderator'])  # Admin OR moderator
+@authorize_fastapi(['admin', 'moderator'])  # Admin OR moderator role required
 async def moderate_content(user: dict):
     return {"moderator": user['user_id']}
 
-# Combined with validation (secure by default):
+# Combined with validation:
 @validate_flask(CreateUserSchema)
 @authorize_flask(['admin'])  
 def create_user(validated, user):
     return {
-        "message": f"Admin {user['username']} created user {validated.username}",
+        "message": f"User {user['username']} created {validated.username}",
         "created_by": user['user_id']
     }
 
-# Docker/Production environment setup:
-# docker run -e JWT_SECRET="$(openssl rand -base64 32)" your-app
+# Multi-role access patterns:
+@authorize_flask(['admin', 'manager', 'supervisor'])  # Any of these roles
+def management_endpoint(user):
+    return {"access_level": "management"}
 
-# Development .env file:
-# JWT_SECRET=your-development-secret-key-at-least-32-characters-long
+# Custom role checking in your function:
+@authorize_flask()  # Just check token presence
+def flexible_endpoint(user):
+    user_roles = user.get('roles', [])
+    
+    if 'admin' in user_roles:
+        return {"level": "full_access"}
+    elif 'user' in user_roles:
+        return {"level": "limited_access"}
+    else:
+        return {"level": "read_only"}
+
+# Expected JWT payload structure:
+{
+    "sub": "user123",           # user_id
+    "username": "john_doe",     # username
+    "email": "john@example.com", # email
+    "roles": ["user", "admin"], # roles for RBAC
+    "permissions": ["read", "write"], # optional permissions
+    "exp": 1234567890,          # expiration (ignored)
+    "iat": 1234567890           # issued at (ignored)
+}
 """

@@ -30,7 +30,6 @@ class FlaskRateLimitMiddleware:
     
     def __call__(self, environ, start_response):
         """WSGI middleware implementation"""
-        from flask import Flask
         
         # Create minimal Flask request-like object for key generation
         class MinimalRequest:
