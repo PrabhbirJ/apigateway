@@ -74,43 +74,45 @@ class FastAPIAdapter(FrameworkAdapter):
         
         return files
 
-    def extract_auth_info(self, *args, **kwargs) -> Dict[str, Optional[str]]:
-        """Extract authentication information from FastAPI request"""
-        # Find Request object in function parameters
+    def extract_auth_token(self, *args, **kwargs) -> Optional[str]:
+        """Extract bearer token from FastAPI request"""
+        request = self._find_request_object(*args, **kwargs)
+        if not request:
+            return None
+            
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            return None
+            
+        try:
+            return self._extract_bearer_token(auth_header)
+        except AuthError:
+            return None  # Invalid format, return None
+
+    def extract_rate_limit_key_info(self, *args, **kwargs) -> Dict[str, Any]:
+        """Extract rate limiting information from FastAPI request"""
         request = self._find_request_object(*args, **kwargs)
         
         if not request:
-            # If no Request object found, we can't extract auth info
             return {
-                "authorization": None,
-                "bearer_token": None,
-                "client_ip": "unknown",
-                "user_agent": "unknown",
-                "method": "unknown",
-                "path": "unknown"
+                'client_ip': 'unknown',
+                'user_agent': 'unknown',
+                'request': None
             }
         
-        auth_header = request.headers.get("Authorization")
-        bearer_token = None
-        
-        # Extract bearer token if present
-        if auth_header:
-            try:
-                bearer_token = self._extract_bearer_token(auth_header)
-            except AuthError:
-                # Don't raise here - let the auth decorator decide what to do
-                pass
-        
-        # Get client IP (FastAPI-specific)
-        client_ip = self._get_client_ip(request)
+        # Get real IP address (handle proxies)
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            client_ip = forwarded_for.split(",")[0].strip()
+        elif hasattr(request, 'client') and request.client:
+            client_ip = request.client.host
+        else:
+            client_ip = "unknown"
         
         return {
-            "authorization": auth_header,
-            "bearer_token": bearer_token,
-            "client_ip": client_ip,
-            "user_agent": request.headers.get("user-agent", "unknown"),
-            "method": request.method,
-            "path": str(request.url.path)
+            'client_ip': client_ip,
+            'user_agent': request.headers.get("user-agent", "unknown"),
+            'request': request
         }
 
     def handle_auth_error(self, error: AuthError) -> Any:
@@ -124,6 +126,33 @@ class FastAPIAdapter(FrameworkAdapter):
                 "code": error.code,
                 "details": error.details
             }
+        )
+
+    def handle_rate_limit_error(self, error) -> Any:
+        """Return FastAPI-compatible rate limit error response"""
+        from apigateway.exceptions.RateLimitError import RateLimitError
+        
+        headers = {}
+        
+        # Add standard rate limit headers
+        if error.details:
+            if 'retry_after' in error.details and error.details['retry_after']:
+                headers['Retry-After'] = str(error.details['retry_after'])
+            if 'limit' in error.details:
+                headers['X-RateLimit-Limit'] = str(error.details['limit'])
+            if 'remaining' in error.details:
+                headers['X-RateLimit-Remaining'] = str(error.details.get('remaining', 0))
+            if 'reset_time' in error.details:
+                headers['X-RateLimit-Reset'] = str(error.details['reset_time'])
+        
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": error.message,
+                "code": error.code,
+                "details": error.details
+            },
+            headers=headers if headers else None
         )
 
     def _find_request_object(self, *args, **kwargs) -> Optional[Request]:
@@ -157,8 +186,6 @@ class FastAPIAdapter(FrameworkAdapter):
             raise TokenError("Missing bearer token")
             
         return token
-
-
 
     def _get_auth_status_code(self, error: AuthError) -> int:
         """Map auth error types to HTTP status codes"""

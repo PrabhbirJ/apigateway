@@ -110,7 +110,7 @@ def test_django_validation_errors(client):
         data=json.dumps({"username": "alice"}),
         content_type='application/json'
     )
-    assert response.status_code == 400
+    assert response.status_code == 422
     assert "error" in response.json()
 
     response = client.post(
@@ -121,7 +121,7 @@ def test_django_validation_errors(client):
     assert response.status_code == 200
 
     response = client.post('/users/json/', data=json.dumps({}), content_type='application/json')
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 @pytest.mark.django_db
@@ -131,7 +131,7 @@ def test_django_malformed_json(client):
         data='{"username": "alice", "age":}',  # invalid JSON
         content_type='application/json'
     )
-    assert response.status_code == 400
+    assert response.status_code == 422
     data = response.json()
     assert "error" in data
     assert "Invalid JSON" in data["error"]

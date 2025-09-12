@@ -45,3 +45,21 @@ class FrameworkAdapter(ABC):
     def handle_auth_error(self, error: AuthError) -> Any:
         """Handle authentication/authorization error in framework-specific way"""
         pass
+    
+    @abstractmethod
+    def extract_rate_limit_key_info(self, *args, **kwargs) -> Dict[str, Any]:
+        """
+        Extract information needed for rate limiting key generation.
+        
+        Returns:
+            Dict containing:
+            - 'client_ip': Client IP address
+            - 'user_agent': User agent string (optional)
+            - 'request': Framework request object
+        """
+        pass
+    
+    @abstractmethod
+    def handle_rate_limit_error(self, error) -> Any:
+        """Handle rate limit error in framework-specific way (429 Too Many Requests)"""
+        pass

@@ -69,6 +69,44 @@ class FlaskAdapter(FrameworkAdapter):
         except AuthError:
             return None  # Invalid format, return None
 
+    def extract_rate_limit_key_info(self, *args, **kwargs) -> Dict[str, Any]:
+        """Extract rate limiting information from Flask request"""
+        # Get real IP address (handle proxies)
+        if request.headers.get('X-Forwarded-For'):
+            client_ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
+        else:
+            client_ip = request.remote_addr or "unknown"
+        
+        return {
+            'client_ip': client_ip,
+            'user_agent': request.headers.get('User-Agent', 'unknown'),
+            'request': request
+        }
+
+    def handle_rate_limit_error(self, error) -> Any:
+        """Return Flask-compatible rate limit error response"""
+        from apigateway.exceptions.RateLimitError import RateLimitError
+        
+        response = jsonify({
+            "error": error.message,
+            "code": error.code,
+            "details": error.details
+        })
+        response.status_code = 429  # Too Many Requests
+        
+        # Add standard rate limit headers
+        if error.details:
+            if 'retry_after' in error.details and error.details['retry_after']:
+                response.headers['Retry-After'] = str(error.details['retry_after'])
+            if 'limit' in error.details:
+                response.headers['X-RateLimit-Limit'] = str(error.details['limit'])
+            if 'remaining' in error.details:
+                response.headers['X-RateLimit-Remaining'] = str(error.details.get('remaining', 0))
+            if 'reset_time' in error.details:
+                response.headers['X-RateLimit-Reset'] = str(error.details['reset_time'])
+        
+        return response
+
     def handle_auth_error(self, error: AuthError) -> Any:
         """Return Flask-compatible auth error response"""
         # Map error types to appropriate HTTP status codes

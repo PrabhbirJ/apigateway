@@ -162,6 +162,8 @@ def decode_jwt(token: str, jwt_config: JWTConfig) -> Dict[str, Any]:
 
 
 def has_required_roles(user_roles: List[str], required_roles: List[str]) -> bool:
+    if not user_roles or not required_roles:
+        return False
     """Check if user has at least one of the required roles"""
     return any(role in user_roles for role in required_roles)
 

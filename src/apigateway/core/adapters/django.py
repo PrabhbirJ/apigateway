@@ -52,29 +52,30 @@ class DjangoAdapter(FrameworkAdapter):
                 files[field_name] = file_list[0] if len(file_list) == 1 else file_list
         return files
 
-    def extract_auth_info(self, request, *args, **kwargs) -> Dict[str, Optional[str]]:
-        """Extract authentication information from Django request"""
+    def extract_auth_token(self, request, *args, **kwargs) -> Optional[str]:
+        """Extract bearer token from Django request"""
         auth_header = request.META.get('HTTP_AUTHORIZATION')
-        bearer_token = None
-        
-        # Extract bearer token if present
-        if auth_header:
-            try:
-                bearer_token = self._extract_bearer_token(auth_header)
-            except AuthError:
-                # Don't raise here - let the auth decorator decide what to do
-                pass
-        
-        # Get client IP (Django-specific logic for proxy handling)
-        client_ip = self._get_client_ip(request)
+        if not auth_header:
+            return None
+            
+        try:
+            return self._extract_bearer_token(auth_header)
+        except AuthError:
+            return None  # Invalid format, return None
+
+    def extract_rate_limit_key_info(self, request, *args, **kwargs) -> Dict[str, Any]:
+        """Extract rate limiting information from Django request"""
+        # Get real IP address (handle proxies)
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            client_ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            client_ip = request.META.get('REMOTE_ADDR', 'unknown')
         
         return {
-            "authorization": auth_header,
-            "bearer_token": bearer_token,
-            "client_ip": client_ip,
-            "user_agent": request.META.get("HTTP_USER_AGENT", "unknown"),
-            "method": request.method,
-            "path": request.path
+            'client_ip': client_ip,
+            'user_agent': request.META.get('HTTP_USER_AGENT', 'unknown'),
+            'request': request
         }
 
     def handle_auth_error(self, error: AuthError) -> Any:
@@ -86,6 +87,31 @@ class DjangoAdapter(FrameworkAdapter):
             "code": error.code,
             "details": error.details
         }, status=status_code)
+
+    def handle_rate_limit_error(self, error) -> Any:
+        """Return Django-compatible rate limit error response"""
+        from apigateway.exceptions.RateLimitError import RateLimitError
+        
+        response_data = {
+            "error": error.message,
+            "code": error.code,
+            "details": error.details
+        }
+        
+        response = JsonResponse(response_data, status=429)
+        
+        # Add standard rate limit headers
+        if error.details:
+            if 'retry_after' in error.details and error.details['retry_after']:
+                response['Retry-After'] = str(error.details['retry_after'])
+            if 'limit' in error.details:
+                response['X-RateLimit-Limit'] = str(error.details['limit'])
+            if 'remaining' in error.details:
+                response['X-RateLimit-Remaining'] = str(error.details.get('remaining', 0))
+            if 'reset_time' in error.details:
+                response['X-RateLimit-Reset'] = str(error.details['reset_time'])
+        
+        return response
 
     def _extract_bearer_token(self, auth_header: str) -> str:
         """Extract bearer token from Authorization header"""
@@ -104,8 +130,6 @@ class DjangoAdapter(FrameworkAdapter):
             raise TokenError("Missing bearer token")
             
         return token
-
-
 
     def _get_auth_status_code(self, error: AuthError) -> int:
         """Map auth error types to HTTP status codes"""

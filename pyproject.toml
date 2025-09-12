@@ -9,8 +9,9 @@ description = "API Gateway"
 authors = [{ name = "PrabhBirJ" }]
 requires-python = ">=3.11"
 dependencies = [
-    "jwt>=1.4.0",
+    "httpx>=0.28.1",
     "pydantic>=2.11.7",
+    "pyjwt>=2.8.0",
 ]
 
 [project.optional-dependencies]
@@ -58,3 +59,14 @@ addopts = "-v --tb=short"  # Added shorter traceback format
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "django>=5.2.5",
+    "fastapi>=0.116.1",
+    "flask>=3.1.2",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-django>=4.11.1",
+]
