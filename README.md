@@ -2,7 +2,7 @@
 
 
 **API Gateway** is a modular, developer-friendly Python project designed to become a **full-featured API Gateway framework**.  
-(v1.2.0) it ships with **request validation utilities and authorization** powered by [Pydantic](https://docs.pydantic.dev).  
+(v1.3.1) it ships with **request validation utilities and authorization** powered by [Pydantic](https://docs.pydantic.dev).  
 In the coming weeks, it will expand into routing, rate limiting, logging, and more.
 
 ---
