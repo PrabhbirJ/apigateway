@@ -2,8 +2,12 @@
 import inspect
 import json
 import base64
+import os  # NEW: For reading environment variables
 from functools import wraps
 from typing import Callable, Dict, Any, List, Optional
+
+import jwt  # NEW: Import PyJWT
+
 from apigateway.core.adapters.base_adapter import FrameworkAdapter
 from apigateway.core.adapters.django import DjangoAdapter
 from apigateway.core.adapters.fastapi import FastAPIAdapter
@@ -15,23 +19,36 @@ from apigateway.exceptions.AuthError import AuthError, AuthenticationError, Auth
 def authorize_request(
     required_roles: Optional[List[str]] = None,
     adapter: Optional[FrameworkAdapter] = None,
+    secret_key: Optional[str] = None,  # NEW: Secret key for verification
+    algorithms: Optional[List[str]] = None,  # NEW: Algorithms for verification
 ):
     """
-    Framework-agnostic RBAC authorization decorator
+    Framework-agnostic RBAC authorization decorator with JWT verification.
     
     Args:
-        required_roles: List of roles required to access this endpoint
-        adapter: Framework adapter (if None, uses GenericAdapter)
+        required_roles: List of roles required to access this endpoint.
+        adapter: Framework adapter (if None, uses GenericAdapter).
+        secret_key: The secret key to verify the JWT signature.
+                    Defaults to os.environ.get('JWT_SECRET_KEY').
+        algorithms: A list of allowed algorithms (e.g., ['HS256']).
+                    Defaults to os.environ.get('JWT_ALGORITHM', 'HS256').
     
     Pipeline:
-        extract_token → decode_payload → extract_roles → check_roles → function
+        extract_token → verify_and_decode → extract_roles → check_roles → function
     """
     
     # Use GenericAdapter if no adapter specified
     if adapter is None:
         adapter = GenericAdapter()
+
+    # MODIFIED: Load secret and algorithm from env vars if not provided
+    secret_key = secret_key or os.environ.get('JWT_SECRET_KEY')
+    if not secret_key:
+        raise ValueError("A secret_key is required for JWT verification. Provide it directly or set JWT_SECRET_KEY environment variable.")
+
+    algorithms = algorithms or [os.environ.get('JWT_ALGORITHM', 'HS256')]
     
-    # Default to empty list if no roles required (just check token presence)
+    # Default to empty list if no roles required (just check token validity)
     required_roles = required_roles or []
     
     def decorator(func: Callable):
@@ -45,8 +62,8 @@ def authorize_request(
                 if not token:
                     raise AuthenticationError("No authentication token provided")
                 
-                # Step 2: Decode payload without verification
-                user_data = decode_token_payload(token)
+                # Step 2: MODIFIED - Verify signature and decode payload
+                user_data = verify_and_decode_token(token, secret_key, algorithms)
                 
                 # Step 3: Extract roles from payload
                 user_roles = user_data.get('roles', [])
@@ -74,7 +91,8 @@ def authorize_request(
                 if not token:
                     raise AuthenticationError("No authentication token provided")
                 
-                user_data = decode_token_payload(token)
+                # MODIFIED - Verify signature and decode payload
+                user_data = verify_and_decode_token(token, secret_key, algorithms)
                 user_roles = user_data.get('roles', [])
                 
                 if required_roles and not has_required_roles(user_roles, required_roles):
@@ -94,43 +112,43 @@ def authorize_request(
     return decorator
 
 
-def decode_token_payload(token: str) -> Dict[str, Any]:
+def verify_and_decode_token(
+    token: str,
+    secret_key_or_pubkey: str,
+    algorithms: List[str],
+    custom_validators: Optional[List[Callable[[Dict[str, Any]], None]]] = None
+) -> Dict[str, Any]:
     """
-    Decode JWT payload WITHOUT verification - RBAC only
-    
-    WARNING: This does NOT validate the token signature or expiration.
-    Only use this when authentication is handled elsewhere and you only need RBAC.
+    Decode and VERIFY a JWT token's signature and standard claims (exp, iat).
+    Supports both symmetric (HS256) and asymmetric (RS256, ES256) algorithms.
+    Then run optional custom validators (revocation, rotation, etc.).
     """
     try:
-        # Split JWT token (header.payload.signature)
-        parts = token.split('.')
-        if len(parts) != 3:
-            raise TokenError("Invalid token format - must have 3 parts")
-        
-        # Decode payload (second part)
-        payload_part = parts[1]
-        
-        # Add padding if needed for base64 decoding
-        padding = '=' * (4 - len(payload_part) % 4)
-        payload_part += padding
-        
-        # Decode base64 payload
-        payload_bytes = base64.urlsafe_b64decode(payload_part)
-        payload = json.loads(payload_bytes.decode('utf-8'))
-        
-        # Extract standard user data
+        # For RS256/ES256, secret_key_or_pubkey should be a PEM-formatted public key
+        payload = jwt.decode(
+            token,
+            secret_key_or_pubkey,
+            algorithms=algorithms,
+            options={"require": ["exp", "iat"]}  # enforce presence of claims
+        )
+
+        # Run extra checks if provided
+        if custom_validators:
+            for validator in custom_validators:
+                validator(payload)  # raise exception if invalid
+
         return {
             'user_id': payload.get('sub'),
             'username': payload.get('username'),
             'email': payload.get('email'),
             'roles': payload.get('roles', []),
             'permissions': payload.get('permissions', []),
-            'token_payload': payload  # Full payload for custom claims
+            'token_payload': payload
         }
-        
-    except (ValueError, json.JSONDecodeError, UnicodeDecodeError) as e:
-        raise TokenError(f"Failed to decode token payload: {str(e)}")
-    except Exception as e:
+
+    except jwt.ExpiredSignatureError:
+        raise TokenError("Token has expired")
+    except jwt.InvalidTokenError as e:
         raise TokenError(f"Invalid token: {str(e)}")
 
 
@@ -141,77 +159,57 @@ def has_required_roles(user_roles: List[str], required_roles: List[str]) -> bool
     return any(role in user_roles for role in required_roles)
 
 
-# Convenience functions for different frameworks
-def authorize_flask(required_roles: Optional[List[str]] = None, **kwargs):
+# MODIFIED: Convenience functions now accept verification parameters
+def authorize_flask(required_roles: Optional[List[str]] = None, secret_key: Optional[str] = None, algorithms: Optional[List[str]] = None):
     """Convenience function for Flask"""
-    return authorize_request(required_roles, adapter=FlaskAdapter(), **kwargs)
+    return authorize_request(required_roles, adapter=FlaskAdapter(), secret_key=secret_key, algorithms=algorithms)
 
 
-def authorize_django(required_roles: Optional[List[str]] = None, **kwargs):
+def authorize_django(required_roles: Optional[List[str]] = None, secret_key: Optional[str] = None, algorithms: Optional[List[str]] = None):
     """Convenience function for Django"""
-    return authorize_request(required_roles, adapter=DjangoAdapter(), **kwargs)
+    return authorize_request(required_roles, adapter=DjangoAdapter(), secret_key=secret_key, algorithms=algorithms)
 
 
-def authorize_fastapi(required_roles: Optional[List[str]] = None, **kwargs):
+def authorize_fastapi(required_roles: Optional[List[str]] = None, secret_key: Optional[str] = None, algorithms: Optional[List[str]] = None):
     """Convenience function for FastAPI"""
-    return authorize_request(required_roles, adapter=FastAPIAdapter(), **kwargs)
+    return authorize_request(required_roles, adapter=FastAPIAdapter(), secret_key=secret_key, algorithms=algorithms)
 
 
-def authorize_generic(required_roles: Optional[List[str]] = None, **kwargs):
+def authorize_generic(required_roles: Optional[List[str]] = None, secret_key: Optional[str] = None, algorithms: Optional[List[str]] = None):
     """Convenience function for generic/custom frameworks"""
-    return authorize_request(required_roles, adapter=GenericAdapter(), **kwargs)
+    return authorize_request(required_roles, adapter=GenericAdapter(), secret_key=secret_key, algorithms=algorithms)
 
 
 # Usage Examples:
 """
-# RBAC-only authorization (no JWT verification):
+# Ensure your secret key is set as an environment variable or passed directly
+# For example: export JWT_SECRET_KEY='your-super-secret-key'
 
-@authorize_flask()  # Any user with a token (no role check)
-def protected_endpoint(user):
-    return {"user_id": user['user_id']}
+# Now, all endpoints are protected by full JWT validation.
 
-@authorize_flask(['admin'])  # Admin role required
+# With secret passed directly:
+MY_SECRET = 'your-super-secret-key'
+
+@authorize_flask(['admin'], secret_key=MY_SECRET)
 def admin_only(user):
     return {"admin": user['username']}
 
-@authorize_fastapi(['admin', 'moderator'])  # Admin OR moderator role required
+# With secret read from environment variables:
+@authorize_fastapi(['admin', 'moderator'])
 async def moderate_content(user: dict):
     return {"moderator": user['user_id']}
 
-# Combined with validation:
-@validate_flask(CreateUserSchema)
-@authorize_flask(['admin'])  
-def create_user(validated, user):
-    return {
-        "message": f"User {user['username']} created {validated.username}",
-        "created_by": user['user_id']
-    }
+# An expired or invalid token will now raise a TokenError,
+# which is handled by the adapter to return a 401/403 response.
 
-# Multi-role access patterns:
-@authorize_flask(['admin', 'manager', 'supervisor'])  # Any of these roles
-def management_endpoint(user):
-    return {"access_level": "management"}
-
-# Custom role checking in your function:
-@authorize_flask()  # Just check token presence
-def flexible_endpoint(user):
-    user_roles = user.get('roles', [])
-    
-    if 'admin' in user_roles:
-        return {"level": "full_access"}
-    elif 'user' in user_roles:
-        return {"level": "limited_access"}
-    else:
-        return {"level": "read_only"}
-
-# Expected JWT payload structure:
+# Expected JWT payload structure (exp and iat are now validated):
 {
-    "sub": "user123",           # user_id
-    "username": "john_doe",     # username
-    "email": "john@example.com", # email
-    "roles": ["user", "admin"], # roles for RBAC
-    "permissions": ["read", "write"], # optional permissions
-    "exp": 1234567890,          # expiration (ignored)
-    "iat": 1234567890           # issued at (ignored)
+    "sub": "user123",
+    "username": "john_doe",
+    "email": "john@example.com",
+    "roles": ["user", "admin"],
+    "permissions": ["read", "write"],
+    "exp": 1758349234,          # Expiration time (Unix timestamp) - NOW VALIDATED
+    "iat": 1758345634           # Issued at time (Unix timestamp) - NOW VALIDATED
 }
 """
