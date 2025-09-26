@@ -3,11 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Gateway Demo - Package Showcase</title>
+    <title>API Gateway - System Administration</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
+        :root {
+            --bg-primary: #0f0f23;
+            --bg-secondary: #1a1a2e;
+            --bg-tertiary: #252545;
+            --border-color: #3a3a5c;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0c4;
+            --text-muted: #7070a0;
+            --accent-primary: #00d9ff;
+            --accent-secondary: #0066cc;
+            --success: #00cc66;
+            --warning: #ff9900;
+            --error: #ff3366;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.6);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -15,184 +32,569 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
             min-height: 100vh;
         }
         
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+        .app-container {
+            display: flex;
+            min-height: 100vh;
         }
-        
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-        
-        .demo-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        
-        .auth-section {
-            grid-column: 1 / -1;
-        }
-        
-        .feature-demo {
-            background: linear-gradient(45deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-        }
-        
-        .logs-section {
-            grid-column: 1 / -1;
-            background: #1a1a1a;
-            color: #00ff00;
-            font-family: 'Courier New', monospace;
-            max-height: 300px;
+
+        .sidebar {
+            width: 320px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 24px 0;
+            position: fixed;
+            height: 100vh;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
-        
-        .btn {
-            background: #4F46E5;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            margin: 5px;
-            transition: all 0.2s;
+
+        .sidebar-header {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 24px;
         }
-        
-        .btn:hover {
-            background: #3730A3;
-            transform: translateY(-1px);
-        }
-        
-        .btn:disabled {
-            background: #9CA3AF;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .btn-danger {
-            background: #EF4444;
-        }
-        
-        .btn-danger:hover {
-            background: #DC2626;
-        }
-        
-        .btn-success {
-            background: #10B981;
-        }
-        
-        .btn-success:hover {
-            background: #059669;
-        }
-        
-        .input-group {
-            margin: 10px 0;
-        }
-        
-        .input-group label {
-            display: block;
-            margin-bottom: 5px;
+
+        .sidebar-title {
+            font-size: 18px;
             font-weight: 600;
-            color: #374151;
+            color: var(--text-primary);
+            margin-bottom: 4px;
         }
-        
-        .input-group input, .input-group select, .input-group textarea {
+
+        .sidebar-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .nav-section {
+            margin-bottom: 32px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0 24px 8px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            background: none;
             width: 100%;
-            padding: 10px;
-            border: 1px solid #D1D5DB;
-            border-radius: 6px;
+            text-align: left;
             font-size: 14px;
         }
-        
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
+
+        .nav-item:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--bg-tertiary);
+            color: var(--accent-primary);
+            border-right: 2px solid var(--accent-primary);
+        }
+
+        .nav-icon {
+            margin-right: 12px;
+            font-size: 16px;
+            width: 20px;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 320px;
+            padding: 32px;
+            max-width: calc(100vw - 320px);
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+        }
+
+        .card-icon {
+            margin-right: 12px;
+            font-size: 20px;
+            color: var(--accent-primary);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-success {
+            background: rgba(0, 204, 102, 0.2);
+            color: var(--success);
+            border: 1px solid rgba(0, 204, 102, 0.3);
+        }
+
+        .status-error {
+            background: rgba(255, 51, 102, 0.2);
+            color: var(--error);
+            border: 1px solid rgba(255, 51, 102, 0.3);
+        }
+
+        .status-warning {
+            background: rgba(255, 153, 0, 0.2);
+            color: var(--warning);
+            border: 1px solid rgba(255, 153, 0, 0.3);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 2px rgba(0, 217, 255, 0.2);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            margin: 4px 8px 4px 0;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #00b8e6;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--border-color);
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: var(--bg-primary);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #00b359;
+            transform: translateY(-1px);
+        }
+
+        .btn-danger {
+            background: var(--error);
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #e6005c;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-icon {
             margin-right: 8px;
         }
-        
-        .status-success {
-            background: #10B981;
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
         }
-        
-        .status-error {
-            background: #EF4444;
+
+        .response-panel {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-top: 20px;
         }
-        
-        .status-warning {
-            background: #F59E0B;
+
+        .response-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: between;
         }
-        
-        .response-display {
-            background: #F3F4F6;
-            border: 1px solid #D1D5DB;
-            border-radius: 6px;
-            padding: 15px;
-            margin: 10px 0;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            max-height: 200px;
+
+        .response-content {
+            padding: 20px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            max-height: 400px;
             overflow-y: auto;
             white-space: pre-wrap;
         }
-        
-        .rate-limit-bar {
-            width: 100%;
-            height: 6px;
-            background: #E5E7EB;
-            border-radius: 3px;
-            overflow: hidden;
+
+        .logs-container {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
         }
-        
+
+        .logs-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .log-entry {
+            padding: 8px 20px;
+            border-bottom: 1px solid rgba(58, 58, 92, 0.3);
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .log-entry:hover {
+            background: rgba(58, 58, 92, 0.1);
+        }
+
+        .log-timestamp {
+            color: var(--text-muted);
+            margin-right: 12px;
+        }
+
+        .log-level {
+            display: inline-block;
+            width: 60px;
+            font-weight: 600;
+            margin-right: 12px;
+        }
+
+        .log-level.INFO { color: var(--accent-primary); }
+        .log-level.SUCCESS { color: var(--success); }
+        .log-level.ERROR { color: var(--error); }
+        .log-level.WARNING { color: var(--warning); }
+
+        .log-message {
+            color: var(--text-primary);
+        }
+
+        .log-data {
+            color: var(--text-muted);
+            margin-left: 12px;
+            font-size: 11px;
+        }
+
+        .auth-status {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .auth-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            font-weight: 700;
+            color: var(--bg-primary);
+        }
+
+        .auth-details h4 {
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .auth-details p {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .rate-limit-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 12px;
+            padding: 8px 12px;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .rate-limit-bar {
+            width: 100px;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-left: 12px;
+        }
+
         .rate-limit-fill {
             height: 100%;
-            background: linear-gradient(90deg, #10B981 0%, #F59E0B 70%, #EF4444 100%);
+            background: linear-gradient(90deg, var(--success) 0%, var(--warning) 70%, var(--error) 100%);
             transition: width 0.3s ease;
         }
-        
-        .feature-list {
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                max-width: 100vw;
+            }
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .feature-overview {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
+            gap: 20px;
+            margin-bottom: 32px;
         }
-        
-        .feature-item {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
+
+        .feature-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.2);
+            padding: 20px;
+            text-align: center;
         }
-        
-        .demo-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 15px 0;
+
+        .feature-icon {
+            font-size: 32px;
+            color: var(--accent-primary);
+            margin-bottom: 12px;
         }
-        
-        @media (max-width: 768px) {
-            .demo-grid {
-                grid-template-columns: 1fr;
+
+        .feature-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .feature-description {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        .sidebar-logs {
+            margin-top: auto;
+            padding: 0 24px 24px;
+        }
+
+        .sidebar-logs-header {
+            margin-bottom: 16px;
+        }
+
+        .sidebar-logs-container {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .sidebar-log-entry {
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(58, 58, 92, 0.3);
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 10px;
+            line-height: 1.3;
+        }
+
+        .sidebar-log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .sidebar-log-entry:hover {
+            background: rgba(58, 58, 92, 0.1);
+        }
+
+        .sidebar-log-entry .log-timestamp {
+            color: var(--text-muted);
+            margin-right: 8px;
+            display: block;
+            font-size: 9px;
+        }
+
+        .sidebar-log-entry .log-level {
+            display: inline-block;
+            width: 45px;
+            font-weight: 600;
+            margin-right: 8px;
+            font-size: 9px;
+        }
+
+        .sidebar-log-entry .log-level.INFO { color: var(--accent-primary); }
+        .sidebar-log-entry .log-level.SUCCESS { color: var(--success); }
+        .sidebar-log-entry .log-level.ERROR { color: var(--error); }
+        .sidebar-log-entry .log-level.WARNING { color: var(--warning); }
+
+        .sidebar-log-entry .log-message {
+            color: var(--text-primary);
+            font-size: 10px;
+            line-height: 1.2;
+            word-break: break-word;
+        }
+
+        .sidebar-empty-state {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                max-width: 100vw;
             }
         }
     </style>
@@ -206,6 +608,9 @@
         const API_BASE = 'http://127.0.0.1:5001';
 
         function APIGatewayDemo() {
+            // Navigation state
+            const [activeSection, setActiveSection] = useState('overview');
+            
             // Auth state
             const [token, setToken] = useState(localStorage.getItem('demo_token'));
             const [user, setUser] = useState(null);
@@ -221,13 +626,13 @@
             const [contactForm, setContactForm] = useState({
                 name: 'John Doe',
                 email: 'john@example.com',
-                message: 'Testing contact form with rate limiting!'
+                message: 'Testing contact form with rate limiting implementation.'
             });
             
             const [postForm, setPostForm] = useState({
-                title: 'My Test Post',
-                content: 'This is a test post to demonstrate the full decorator stack!',
-                tags: 'demo,test,logging'
+                title: 'System Integration Test',
+                content: 'Comprehensive test of the API gateway decorators and middleware stack.',
+                tags: 'api,test,validation'
             });
             
             const [userForm, setUserForm] = useState({
@@ -252,13 +657,13 @@
                     data,
                     id: Date.now() + Math.random()
                 };
-                setLogs(prev => [logEntry, ...prev].slice(0, 50)); // Keep last 50 logs
+                setLogs(prev => [logEntry, ...prev].slice(0, 100));
             }, []);
 
             // API call wrapper
             const apiCall = async (endpoint, options = {}) => {
                 setLoading(true);
-                addLog('INFO', `Making API call to ${endpoint}`, { method: options.method || 'GET' });
+                addLog('INFO', `Initiating API call to ${endpoint}`, { method: options.method || 'GET' });
                 
                 try {
                     const headers = {
@@ -290,17 +695,17 @@
                     }
 
                     if (response.ok) {
-                        addLog('SUCCESS', `API call successful: ${response.status}`, { endpoint, response: data });
-                        setLastResponse({ status: response.status, data, endpoint });
+                        addLog('SUCCESS', `API response received: ${response.status}`, { endpoint, responseSize: JSON.stringify(data).length });
+                        setLastResponse({ status: response.status, data, endpoint, timestamp: new Date().toISOString() });
                         return data;
                     } else {
-                        addLog('ERROR', `API call failed: ${response.status}`, { endpoint, error: data });
-                        setLastResponse({ status: response.status, data, endpoint, error: true });
+                        addLog('ERROR', `API call failed: ${response.status} ${response.statusText}`, { endpoint, error: data });
+                        setLastResponse({ status: response.status, data, endpoint, error: true, timestamp: new Date().toISOString() });
                         return null;
                     }
                 } catch (error) {
-                    addLog('ERROR', `Network error: ${error.message}`, { endpoint });
-                    setLastResponse({ error: true, message: error.message, endpoint });
+                    addLog('ERROR', `Network error: ${error.message}`, { endpoint, errorType: error.name });
+                    setLastResponse({ error: true, message: error.message, endpoint, timestamp: new Date().toISOString() });
                     return null;
                 } finally {
                     setLoading(false);
@@ -317,7 +722,7 @@
                 if (data?.access_token) {
                     setToken(data.access_token);
                     localStorage.setItem('demo_token', data.access_token);
-                    addLog('SUCCESS', 'Login successful', { username: loginForm.username });
+                    addLog('SUCCESS', 'Authentication successful', { username: loginForm.username });
                 }
             };
 
@@ -325,14 +730,14 @@
                 setToken(null);
                 setUser(null);
                 localStorage.removeItem('demo_token');
-                addLog('INFO', 'Logged out');
+                addLog('INFO', 'Session terminated');
             };
 
             const getCurrentUser = async () => {
                 const data = await apiCall('/whoami');
                 if (data?.user) {
                     setUser(data.user);
-                    addLog('SUCCESS', 'User info retrieved', { user: data.user });
+                    addLog('SUCCESS', 'User profile loaded', { userId: data.user.user_id, roles: data.user.roles });
                 }
             };
 
@@ -345,17 +750,21 @@
             };
 
             const testRateLimit = async () => {
-                addLog('INFO', 'Starting rate limit test (10 rapid requests)');
+                addLog('INFO', 'Initiating rate limit stress test (10 concurrent requests)');
+                const promises = [];
                 for (let i = 1; i <= 10; i++) {
-                    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
-                    await apiCall('/contact', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            ...contactForm,
-                            message: `Rate limit test #${i}`
+                    promises.push(
+                        apiCall('/contact', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                                ...contactForm,
+                                message: `Rate limit test request #${i}`
+                            })
                         })
-                    });
+                    );
                 }
+                await Promise.all(promises);
+                addLog('INFO', 'Rate limit stress test completed');
             };
 
             const createPost = async () => {
@@ -389,7 +798,7 @@
                     method: 'POST',
                     body: JSON.stringify({
                         title: 'Test',
-                        invalid_field: 'This should cause validation error'
+                        invalid_field: 'This field should trigger validation error'
                     })
                 });
             };
@@ -405,11 +814,11 @@
                 await apiCall('/profile-demo', {
                     method: 'POST',
                     body: JSON.stringify({
-                        username: 'xy',  // Too short
-                        email: 'bad@gmail.com',  // Wrong domain
-                        age: 16,  // Too young
-                        department: 'InvalidDept',  // Not allowed
-                        extra_field: 'forbidden'  // Extra field
+                        username: 'xy',
+                        email: 'bad@gmail.com',
+                        age: 16,
+                        department: 'InvalidDept',
+                        extra_field: 'forbidden'
                     })
                 });
             };
@@ -418,13 +827,12 @@
                 await apiCall('/profile-demo/examples');
             };
 
-            // Get custom role token
             const getCustomToken = async (role) => {
                 const data = await apiCall(`/get-custom-token/${role}`);
                 if (data?.access_token) {
                     setToken(data.access_token);
                     localStorage.setItem('demo_token', data.access_token);
-                    addLog('SUCCESS', `Got ${role} token`, { role });
+                    addLog('SUCCESS', `${role.toUpperCase()} token acquired`, { role });
                 }
             };
 
@@ -435,22 +843,107 @@
                 }
             }, [token]);
 
-            return (
-                <div className="container">
-                    <div className="header">
-                        <h1>🚀 API Gateway Package Demo</h1>
-                        <p>Interactive demonstration of validation, authorization, rate limiting & logging</p>
+            const renderOverview = () => (
+                <div>
+                    <div className="page-header">
+                        <h1 className="page-title">System Overview</h1>
+                        <p className="page-subtitle">API Gateway Package Demonstration Environment</p>
                     </div>
 
-                    {/* Authentication Section */}
-                    <div className="card auth-section">
-                        <h2>🔐 Authentication & Authorization</h2>
-                        
-                        {!token ? (
+                    <div className="feature-overview">
+                        <div className="feature-card">
+                            <div className="feature-icon">🔐</div>
+                            <h3 className="feature-title">JWT Authentication</h3>
+                            <p className="feature-description">Role-based access control with custom token validation and automatic session management</p>
+                        </div>
+                        <div className="feature-card">
+                            <div className="feature-icon">✅</div>
+                            <h3 className="feature-title">Data Validation</h3>
+                            <p className="feature-description">Pydantic schema validation with pre/post processors and structured error handling</p>
+                        </div>
+                        <div className="feature-card">
+                            <div className="feature-icon">🚦</div>
+                            <h3 className="feature-title">Rate Limiting</h3>
+                            <p className="feature-description">Token bucket algorithm with Redis/memory backends and configurable limits</p>
+                        </div>
+                        <div className="feature-card">
+                            <div className="feature-icon">📊</div>
+                            <h3 className="feature-title">Structured Logging</h3>
+                            <p className="feature-description">JSON-formatted logs with correlation IDs, sensitive data masking, and metrics</p>
+                        </div>
+                    </div>
+
+                    {lastResponse && (
+                        <div className="card">
+                            <div className="card-header">
+                                <h3 className="card-title">
+                                    <span className="card-icon">📡</span>
+                                    Last API Response
+                                </h3>
+                                <div className={`status-badge ${lastResponse.error ? 'status-error' : 'status-success'}`}>
+                                    HTTP {lastResponse.status}
+                                </div>
+                            </div>
+                            <div className="response-panel">
+                                <div className="response-header">
+                                    <strong>{lastResponse.endpoint}</strong>
+                                    <span style={{color: 'var(--text-muted)', fontSize: '12px'}}>
+                                        {new Date(lastResponse.timestamp).toLocaleTimeString()}
+                                    </span>
+                                </div>
+                                <div className="response-content">
+                                    {JSON.stringify(lastResponse.data, null, 2)}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+
+            const renderAuthentication = () => (
+                <div>
+                    <div className="page-header">
+                        <h1 className="page-title">Authentication</h1>
+                        <p className="page-subtitle">JWT token management and role-based access control</p>
+                    </div>
+
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">
+                                <span className="card-icon">🔐</span>
+                                Session Management
+                            </h3>
+                        </div>
+
+                        {token && user ? (
                             <div>
-                                <div className="input-group">
-                                    <label>Username</label>
+                                <div className="auth-status">
+                                    <div className="auth-avatar">
+                                        {user.username.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="auth-details">
+                                        <h4>{user.username}</h4>
+                                        <p>User ID: {user.user_id} • Roles: {user.roles?.join(', ')}</p>
+                                        <p>Email: {user.email}</p>
+                                    </div>
+                                </div>
+                                <div className="actions-grid">
+                                    <button className="btn btn-secondary" onClick={getCurrentUser} disabled={loading}>
+                                        <span className="btn-icon">🔄</span>
+                                        Refresh Profile
+                                    </button>
+                                    <button className="btn btn-danger" onClick={logout}>
+                                        <span className="btn-icon">🚪</span>
+                                        Logout
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="form-group">
+                                    <label className="form-label">User Account</label>
                                     <select 
+                                        className="form-select"
                                         value={loginForm.username}
                                         onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
                                     >
@@ -460,272 +953,462 @@
                                         <option value="moderator">moderator (user, moderator)</option>
                                     </select>
                                 </div>
-                                <button className="btn btn-success" onClick={login} disabled={loading}>
-                                    Get JWT Token
-                                </button>
-                                <div className="demo-actions">
-                                    <button className="btn" onClick={() => getCustomToken('user')}>Quick: User Token</button>
-                                    <button className="btn" onClick={() => getCustomToken('admin')}>Quick: Admin Token</button>
-                                    <button className="btn" onClick={() => getCustomToken('premium')}>Quick: Premium Token</button>
+                                <div className="actions-grid">
+                                    <button className="btn btn-primary" onClick={login} disabled={loading}>
+                                        <span className="btn-icon">🔑</span>
+                                        Authenticate
+                                    </button>
+                                    <button className="btn btn-secondary" onClick={() => getCustomToken('user')}>
+                                        Quick: User
+                                    </button>
+                                    <button className="btn btn-secondary" onClick={() => getCustomToken('admin')}>
+                                        Quick: Admin
+                                    </button>
+                                    <button className="btn btn-secondary" onClick={() => getCustomToken('premium')}>
+                                        Quick: Premium
+                                    </button>
                                 </div>
                             </div>
-                        ) : (
+                        )}
+                    </div>
+                </div>
+            );
+
+            const renderEndpoints = () => (
+                <div>
+                    <div className="page-header">
+                        <h1 className="page-title">API Endpoints</h1>
+                        <p className="page-subtitle">Test various endpoint configurations and access controls</p>
+                    </div>
+
+                    {/* Public Endpoints */}
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">
+                                <span className="card-icon">🌐</span>
+                                Public Endpoints
+                            </h3>
+                            <div className="status-badge status-success">No Auth Required</div>
+                        </div>
+                        
+                        <div className="form-grid">
                             <div>
-                                <div style={{display: 'flex', alignItems: 'center', marginBottom: '15px'}}>
-                                    <span className="status-indicator status-success"></span>
-                                    <strong>Authenticated as: {user?.username || 'Loading...'}</strong>
+                                <div className="form-group">
+                                    <label className="form-label">Name</label>
+                                    <input 
+                                        className="form-input"
+                                        value={contactForm.name}
+                                        onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
+                                    />
                                 </div>
-                                {user && (
-                                    <div>
-                                        <p><strong>Roles:</strong> {user.roles?.join(', ')}</p>
-                                        <p><strong>User ID:</strong> {user.user_id}</p>
-                                        <p><strong>Email:</strong> {user.email}</p>
-                                    </div>
-                                )}
-                                <div className="demo-actions">
-                                    <button className="btn btn-danger" onClick={logout}>Logout</button>
-                                    <button className="btn" onClick={getCurrentUser}>Refresh User Info</button>
+                                <div className="form-group">
+                                    <label className="form-label">Email</label>
+                                    <input 
+                                        className="form-input"
+                                        type="email"
+                                        value={contactForm.email}
+                                        onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <div className="form-group">
+                                    <label className="form-label">Message</label>
+                                    <textarea 
+                                        className="form-textarea"
+                                        value={contactForm.message}
+                                        onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
+                                        rows="4"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="actions-grid">
+                            <button className="btn btn-primary" onClick={testContactForm} disabled={loading}>
+                                <span className="btn-icon">📝</span>
+                                Submit Contact Form
+                            </button>
+                            <button className="btn btn-danger" onClick={testRateLimit} disabled={loading}>
+                                <span className="btn-icon">🚀</span>
+                                Stress Test (10 req/sec)
+                            </button>
+                        </div>
+                        
+                        {rateLimitStatus['/contact'] && (
+                            <div className="rate-limit-indicator">
+                                <span>Rate Limit: {rateLimitStatus['/contact'].remaining}/{rateLimitStatus['/contact'].limit}</span>
+                                <div className="rate-limit-bar">
+                                    <div 
+                                        className="rate-limit-fill"
+                                        style={{width: `${(rateLimitStatus['/contact'].remaining / rateLimitStatus['/contact'].limit) * 100}%`}}
+                                    />
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    <div className="demo-grid">
-                        {/* Feature Demonstrations */}
-                        <div className="card feature-demo">
-                            <h3>📋 Package Features</h3>
-                            <div className="feature-list">
-                                <div className="feature-item">
-                                    <h4>🛡️ JWT Authorization</h4>
-                                    <p>Role-based access control with custom token decoder</p>
+                    {/* Protected Endpoints */}
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">
+                                <span className="card-icon">🔒</span>
+                                Protected Endpoints
+                            </h3>
+                            <div className={`status-badge ${token ? 'status-success' : 'status-error'}`}>
+                                {token ? 'Authenticated' : 'Auth Required'}
+                            </div>
+                        </div>
+                        
+                        <div className="form-grid">
+                            <div>
+                                <div className="form-group">
+                                    <label className="form-label">Post Title</label>
+                                    <input 
+                                        className="form-input"
+                                        value={postForm.title}
+                                        onChange={(e) => setPostForm({...postForm, title: e.target.value})}
+                                    />
                                 </div>
-                                <div className="feature-item">
-                                    <h4>✅ Validation</h4>
-                                    <p>Pydantic schemas with pre/post validators</p>
-                                </div>
-                                <div className="feature-item">
-                                    <h4>🚦 Rate Limiting</h4>
-                                    <p>Token bucket with memory/Redis backends</p>
-                                </div>
-                                <div className="feature-item">
-                                    <h4>📝 Structured Logging</h4>
-                                    <p>JSON logs with correlation IDs & masking</p>
+                                <div className="form-group">
+                                    <label className="form-label">Tags (comma separated)</label>
+                                    <input 
+                                        className="form-input"
+                                        value={postForm.tags}
+                                        onChange={(e) => setPostForm({...postForm, tags: e.target.value})}
+                                    />
                                 </div>
                             </div>
-                        </div>
-
-                        {/* Public Endpoints */}
-                        <div className="card">
-                            <h3>🌍 Public Endpoints (No Auth Required)</h3>
-                            
-                            <div className="input-group">
-                                <label>Contact Form</label>
-                                <input 
-                                    placeholder="Name"
-                                    value={contactForm.name}
-                                    onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
-                                />
-                                <input 
-                                    placeholder="Email"
-                                    value={contactForm.email}
-                                    onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
-                                />
-                                <textarea 
-                                    placeholder="Message"
-                                    value={contactForm.message}
-                                    onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
-                                />
-                            </div>
-                            
-                            <div className="demo-actions">
-                                <button className="btn" onClick={testContactForm} disabled={loading}>
-                                    Submit Contact (Rate Limited: 10/min)
-                                </button>
-                                <button className="btn btn-danger" onClick={testRateLimit} disabled={loading}>
-                                    Test Rate Limiting (10 rapid calls)
-                                </button>
+                            <div>
+                                <div className="form-group">
+                                    <label className="form-label">Content</label>
+                                    <textarea 
+                                        className="form-textarea"
+                                        value={postForm.content}
+                                        onChange={(e) => setPostForm({...postForm, content: e.target.value})}
+                                        rows="4"
+                                    />
+                                </div>
                             </div>
                         </div>
+                        
+                        <div className="actions-grid">
+                            <button className="btn btn-primary" onClick={createPost} disabled={loading || !token}>
+                                <span className="btn-icon">📄</span>
+                                Create Post
+                            </button>
+                            <button className="btn btn-danger" onClick={testValidationError} disabled={loading || !token}>
+                                <span className="btn-icon">⚠️</span>
+                                Test Validation Error
+                            </button>
+                        </div>
+                    </div>
 
-                        {/* Protected Endpoints */}
-                        <div className="card">
-                            <h3>🔒 Protected Endpoints (Auth Required)</h3>
-                            
-                            <div className="input-group">
-                                <label>Create Post</label>
-                                <input 
-                                    placeholder="Title"
-                                    value={postForm.title}
-                                    onChange={(e) => setPostForm({...postForm, title: e.target.value})}
-                                />
-                                <textarea 
-                                    placeholder="Content"
-                                    value={postForm.content}
-                                    onChange={(e) => setPostForm({...postForm, content: e.target.value})}
-                                />
-                                <input 
-                                    placeholder="Tags (comma separated)"
-                                    value={postForm.tags}
-                                    onChange={(e) => setPostForm({...postForm, tags: e.target.value})}
-                                />
-                            </div>
-                            
-                            <div className="demo-actions">
-                                <button className="btn" onClick={createPost} disabled={loading || !token}>
-                                    Create Post (User role + Rate limited: 5/min)
-                                </button>
-                                <button className="btn btn-danger" onClick={testValidationError} disabled={loading || !token}>
-                                    Test Validation Error
-                                </button>
+                    {/* Admin Endpoints */}
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">
+                                <span className="card-icon">👑</span>
+                                Admin Endpoints
+                            </h3>
+                            <div className={`status-badge ${user?.roles?.includes('admin') ? 'status-success' : 'status-error'}`}>
+                                {user?.roles?.includes('admin') ? 'Admin Access' : 'Admin Required'}
                             </div>
                         </div>
-
-                        {/* Admin Endpoints */}
-                        <div className="card">
-                            <h3>👑 Admin Endpoints</h3>
-                            
-                            <div className="input-group">
-                                <label>Create User (Admin Only)</label>
-                                <input 
-                                    placeholder="Username"
-                                    value={userForm.username}
-                                    onChange={(e) => setUserForm({...userForm, username: e.target.value})}
-                                />
-                                <input 
-                                    type="number"
-                                    placeholder="Age"
-                                    value={userForm.age}
-                                    onChange={(e) => setUserForm({...userForm, age: parseInt(e.target.value)})}
-                                />
-                                <input 
-                                    placeholder="Email (must be @company.com)"
-                                    value={userForm.email}
-                                    onChange={(e) => setUserForm({...userForm, email: e.target.value})}
-                                />
+                        
+                        <div className="form-grid">
+                            <div>
+                                <div className="form-group">
+                                    <label className="form-label">Username</label>
+                                    <input 
+                                        className="form-input"
+                                        value={userForm.username}
+                                        onChange={(e) => setUserForm({...userForm, username: e.target.value})}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Age</label>
+                                    <input 
+                                        className="form-input"
+                                        type="number"
+                                        value={userForm.age}
+                                        onChange={(e) => setUserForm({...userForm, age: parseInt(e.target.value)})}
+                                    />
+                                </div>
                             </div>
-                            
-                            <div className="demo-actions">
-                                <button className="btn" onClick={createUser} disabled={loading || !token}>
-                                    Create User (Post-validators + Logging)
-                                </button>
-                                <button className="btn" onClick={getAdminStats} disabled={loading || !token}>
-                                    Get Admin Stats
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Premium Endpoints */}
-                        <div className="card">
-                            <h3>💎 Premium Features</h3>
-                            <div className="demo-actions">
-                                <button className="btn" onClick={getPremiumData} disabled={loading || !token}>
-                                    Get Premium Data (Premium/Admin role)
-                                </button>
+                            <div>
+                                <div className="form-group">
+                                    <label className="form-label">Email (@company.com required)</label>
+                                    <input 
+                                        className="form-input"
+                                        type="email"
+                                        value={userForm.email}
+                                        onChange={(e) => setUserForm({...userForm, email: e.target.value})}
+                                    />
+                                </div>
                             </div>
                         </div>
+                        
+                        <div className="actions-grid">
+                            <button className="btn btn-primary" onClick={createUser} disabled={loading || !token}>
+                                <span className="btn-icon">👤</span>
+                                Create User
+                            </button>
+                            <button className="btn btn-secondary" onClick={getAdminStats} disabled={loading || !token}>
+                                <span className="btn-icon">📊</span>
+                                Get Statistics
+                            </button>
+                        </div>
+                    </div>
 
-                        {/* Validation Demo */}
-                        <div className="card">
-                            <h3>🔍 Validation Demo (4-Field Profile)</h3>
-                            
-                            <div className="input-group">
-                                <label>Username (3+ chars, alphanumeric)</label>
-                                <input 
-                                    placeholder="Username"
-                                    value={profileForm.username}
-                                    onChange={(e) => setProfileForm({...profileForm, username: e.target.value})}
-                                />
-                                <label>Email (@company.com required)</label>
-                                <input 
-                                    placeholder="Email"
-                                    value={profileForm.email}
-                                    onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
-                                />
-                                <label>Age (18-65)</label>
-                                <input 
-                                    type="number"
-                                    placeholder="Age"
-                                    value={profileForm.age}
-                                    onChange={(e) => setProfileForm({...profileForm, age: parseInt(e.target.value) || 0})}
-                                />
-                                <label>Department</label>
-                                <select 
-                                    value={profileForm.department}
-                                    onChange={(e) => setProfileForm({...profileForm, department: e.target.value})}
-                                >
-                                    <option value="Engineering">Engineering</option>
-                                    <option value="Marketing">Marketing</option>
-                                    <option value="Sales">Sales</option>
-                                    <option value="Hr">HR</option>
-                                    <option value="Finance">Finance</option>
-                                    <option value="InvalidDept">InvalidDept (will fail)</option>
-                                </select>
+                    {/* Premium Endpoints */}
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">
+                                <span className="card-icon">💎</span>
+                                Premium Endpoints
+                            </h3>
+                            <div className={`status-badge ${user?.roles?.includes('premium') || user?.roles?.includes('admin') ? 'status-success' : 'status-error'}`}>
+                                {user?.roles?.includes('premium') || user?.roles?.includes('admin') ? 'Premium Access' : 'Premium Required'}
                             </div>
-                            
-                            <div className="demo-actions">
-                                <button className="btn btn-success" onClick={testProfileValidation} disabled={loading}>
-                                    Test Valid Profile
-                                </button>
-                                <button className="btn btn-danger" onClick={testInvalidProfile} disabled={loading}>
-                                    Test Multiple Validation Errors
-                                </button>
-                                <button className="btn" onClick={getProfileExamples} disabled={loading}>
-                                    Get Validation Examples
-                                </button>
+                        </div>
+                        
+                        <div className="actions-grid">
+                            <button className="btn btn-primary" onClick={getPremiumData} disabled={loading || !token}>
+                                <span className="btn-icon">🔓</span>
+                                Access Premium Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const renderValidation = () => (
+                <div>
+                    <div className="page-header">
+                        <h1 className="page-title">Data Validation</h1>
+                        <p className="page-subtitle">Test Pydantic schema validation with comprehensive error handling</p>
+                    </div>
+
+                    <div className="card">
+                        <div className="card-header">
+                            <h3 className="card-title">
+                                <span className="card-icon">🔍</span>
+                                Profile Validation Schema
+                            </h3>
+                        </div>
+                        
+                        <div className="form-grid">
+                            <div>
+                                <div className="form-group">
+                                    <label className="form-label">Username (3+ chars, alphanumeric)</label>
+                                    <input 
+                                        className="form-input"
+                                        value={profileForm.username}
+                                        onChange={(e) => setProfileForm({...profileForm, username: e.target.value})}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Age (18-65)</label>
+                                    <input 
+                                        className="form-input"
+                                        type="number"
+                                        value={profileForm.age}
+                                        onChange={(e) => setProfileForm({...profileForm, age: parseInt(e.target.value) || 0})}
+                                    />
+                                </div>
                             </div>
-                            
-                            <div style={{marginTop: '10px', fontSize: '12px', color: '#666'}}>
-                                <strong>Validation Features:</strong> Pre-validators (cleanup), Post-validators (business rules), Structured logging
+                            <div>
+                                <div className="form-group">
+                                    <label className="form-label">Email (@company.com required)</label>
+                                    <input 
+                                        className="form-input"
+                                        type="email"
+                                        value={profileForm.email}
+                                        onChange={(e) => setProfileForm({...profileForm, email: e.target.value})}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Department</label>
+                                    <select 
+                                        className="form-select"
+                                        value={profileForm.department}
+                                        onChange={(e) => setProfileForm({...profileForm, department: e.target.value})}
+                                    >
+                                        <option value="Engineering">Engineering</option>
+                                        <option value="Marketing">Marketing</option>
+                                        <option value="Sales">Sales</option>
+                                        <option value="Hr">HR</option>
+                                        <option value="Finance">Finance</option>
+                                        <option value="InvalidDept">InvalidDept (will fail)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="actions-grid">
+                            <button className="btn btn-success" onClick={testProfileValidation} disabled={loading}>
+                                <span className="btn-icon">✅</span>
+                                Test Valid Profile
+                            </button>
+                            <button className="btn btn-danger" onClick={testInvalidProfile} disabled={loading}>
+                                <span className="btn-icon">❌</span>
+                                Test Multiple Errors
+                            </button>
+                            <button className="btn btn-secondary" onClick={getProfileExamples} disabled={loading}>
+                                <span className="btn-icon">📋</span>
+                                Get Examples
+                            </button>
+                        </div>
+                        
+                        <div style={{marginTop: '20px', padding: '16px', background: 'var(--bg-primary)', borderRadius: '6px', fontSize: '13px'}}>
+                            <strong>Validation Features:</strong> Pre-validators (data cleanup), Post-validators (business rules), 
+                            Field-level constraints, Custom error messages, Structured logging
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const renderLogs = () => (
+                <div>
+                    <div className="page-header">
+                        <h1 className="page-title">System Logs</h1>
+                        <p className="page-subtitle">Real-time structured logging with correlation IDs and metrics</p>
+                    </div>
+
+                    <div className="card">
+                        <div className="logs-container">
+                            <div className="logs-header">
+                                <h3 className="card-title">
+                                    <span className="card-icon">📊</span>
+                                    Live Activity Log
+                                </h3>
+                            </div>
+                            <div>
+                                {logs.length > 0 ? (
+                                    logs.map(log => (
+                                        <div key={log.id} className="log-entry">
+                                            <span className="log-timestamp">
+                                                {new Date(log.timestamp).toLocaleTimeString()}
+                                            </span>
+                                            <span className={`log-level ${log.level}`}>
+                                                {log.level}
+                                            </span>
+                                            <span className="log-message">{log.message}</span>
+                                            {Object.keys(log.data).length > 0 && (
+                                                <div className="log-data">
+                                                    {JSON.stringify(log.data, null, 2)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="empty-state">
+                                        <div className="empty-state-icon">📊</div>
+                                        <p>No activity logged yet</p>
+                                        <p style={{fontSize: '12px', marginTop: '8px'}}>
+                                            Make API calls to see real-time logs appear here
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
-                    
-                    {/* Response Display */}
-                    {lastResponse && (
-                        <div className="card">
-                            <h3>📡 Last API Response</h3>
-                            <div style={{display: 'flex', alignItems: 'center', marginBottom: '10px'}}>
-                                <span className={`status-indicator ${lastResponse.error ? 'status-error' : 'status-success'}`}></span>
-                                <strong>{lastResponse.endpoint}</strong>
-                                <span style={{marginLeft: '10px', background: lastResponse.error ? '#FEE2E2' : '#D1FAE5', 
-                                            padding: '2px 8px', borderRadius: '4px', fontSize: '12px'}}>
-                                    {lastResponse.status}
-                                </span>
-                            </div>
-                            <div className="response-display">
-                                {JSON.stringify(lastResponse.data, null, 2)}
-                            </div>
-                        </div>
-                    )}
+                </div>
+            );
 
-                    {/* Live Logs */}
-                    <div className="card logs-section">
-                        <h3 style={{color: '#00ff00', marginBottom: '15px'}}>📊 Live Demo Logs</h3>
-                        <div>
-                            {logs.map(log => (
-                                <div key={log.id} style={{marginBottom: '5px', fontSize: '11px'}}>
-                                    <span style={{color: '#888'}}>[{log.timestamp.split('T')[1].split('.')[0]}]</span>
-                                    <span style={{color: log.level === 'ERROR' ? '#ff4444' : 
-                                                       log.level === 'SUCCESS' ? '#44ff44' : 
-                                                       log.level === 'WARNING' ? '#ffaa44' : '#00ff00',
-                                                 marginLeft: '5px'}}>
-                                        {log.level}
-                                    </span>
-                                    <span style={{marginLeft: '10px'}}>{log.message}</span>
-                                    {Object.keys(log.data).length > 0 && (
-                                        <span style={{color: '#888', marginLeft: '10px'}}>
-                                            {JSON.stringify(log.data)}
-                                        </span>
-                                    )}
-                                </div>
-                            ))}
-                            {logs.length === 0 && (
-                                <div style={{color: '#888', fontStyle: 'italic'}}>
-                                    No logs yet. Try making some API calls!
+            const navigationItems = [
+                { id: 'overview', label: 'Overview', icon: '🏠' },
+                { id: 'auth', label: 'Authentication', icon: '🔐' },
+                { id: 'endpoints', label: 'API Endpoints', icon: '🔗' },
+                { id: 'validation', label: 'Data Validation', icon: '✅' }
+            ];
+
+            const renderContent = () => {
+                switch (activeSection) {
+                    case 'overview': return renderOverview();
+                    case 'auth': return renderAuthentication();
+                    case 'endpoints': return renderEndpoints();
+                    case 'validation': return renderValidation();
+                    default: return renderOverview();
+                }
+            };
+
+            return (
+                <div className={`app-container ${loading ? 'loading' : ''}`}>
+                    <aside className="sidebar">
+                        <div className="sidebar-header">
+                            <h2 className="sidebar-title">API Gateway</h2>
+                            <p className="sidebar-subtitle">System Administration</p>
+                        </div>
+                        
+                        <nav>
+                            <div className="nav-section">
+                                <div className="nav-label">Navigation</div>
+                                {navigationItems.map(item => (
+                                    <button
+                                        key={item.id}
+                                        className={`nav-item ${activeSection === item.id ? 'active' : ''}`}
+                                        onClick={() => setActiveSection(item.id)}
+                                    >
+                                        <span className="nav-icon">{item.icon}</span>
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            {token && user && (
+                                <div className="nav-section">
+                                    <div className="nav-label">Session</div>
+                                    <div style={{padding: '12px 24px', fontSize: '12px', color: 'var(--text-secondary)'}}>
+                                        <div style={{marginBottom: '4px'}}>
+                                            <strong>{user.username}</strong>
+                                        </div>
+                                        <div>
+                                            {user.roles?.join(', ')}
+                                        </div>
+                                    </div>
                                 </div>
                             )}
+                        </nav>
+
+                                <div className="sidebar-logs">
+            <div className="sidebar-logs-header">
+                <h4 style={{fontSize: '12px', fontWeight: '600', color: 'var(--text-primary)', margin: '0 0 12px 0'}}>
+                    📊 Live Activity
+                </h4>
+            </div>
+            <div className="sidebar-logs-container">
+                {logs.length > 0 ? (
+                    logs.slice(0, 10).map(log => (
+                        <div key={log.id} className="sidebar-log-entry">
+                            <span className="log-timestamp">
+                                {new Date(log.timestamp).toLocaleTimeString('en-US', {
+                                    hour12: false,
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                })}
+                            </span>
+                            <span className={`log-level ${log.level}`}>
+                                {log.level}
+                            </span>
+                            <div className="log-message">{log.message}</div>
                         </div>
+                    ))
+                ) : (
+                    <div className="sidebar-empty-state">
+                        <div style={{fontSize: '24px', marginBottom: '8px', opacity: '0.5'}}>📊</div>
+                        <div style={{fontSize: '11px', color: 'var(--text-muted)'}}>No activity yet</div>
                     </div>
+                )}
+            </div>
+        </div>
+                    </aside>
+
+                    <main className="main-content">
+                        {renderContent()}
+                    </main>
                 </div>
             );
         }
