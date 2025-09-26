@@ -197,3 +197,96 @@ class FastAPIAdapter(FrameworkAdapter):
             return 401  # Unauthorized
         else:
             return 403  # Default to Forbidden
+        
+    def extract_request_logging_info(self, *args, **kwargs) -> Dict[str, Any]:
+        """Extract FastAPI request information for logging"""
+        from fastapi import Request
+        
+        # Find the Request object in args or kwargs
+        request = None
+        for arg in args:
+            if isinstance(arg, Request):
+                request = arg
+                break
+        
+        if not request:
+            for key, value in kwargs.items():
+                if isinstance(value, Request):
+                    request = value
+                    break
+        
+        if not request:
+            # Fallback when no Request object found
+            return {
+                'method': 'UNKNOWN',
+                'path': '/',
+                'headers': {},
+                'query_params': {},
+                'client_ip': 'unknown',
+                'user_agent': 'unknown',
+                'content_type': None,
+                'content_length': None,
+                'url': None,
+                'scheme': None,
+                'endpoint': None
+            }
+        
+        # Get real IP address (handle proxies)
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            client_ip = forwarded_for.split(",")[0].strip()
+        elif hasattr(request, 'client') and request.client:
+            client_ip = request.client.host
+        else:
+            client_ip = "unknown"
+        
+        # Extract headers (FastAPI headers are already lowercase)
+        headers = dict(request.headers)
+        
+        return {
+            'method': request.method,
+            'path': request.url.path,
+            'headers': headers,
+            'query_params': dict(request.query_params),
+            'client_ip': client_ip,
+            'user_agent': request.headers.get("user-agent", "unknown"),
+            'content_type': request.headers.get("content-type"),
+            'content_length': request.headers.get("content-length"),
+            'url': str(request.url),
+            'scheme': request.url.scheme,
+            'endpoint': request.url.path  # FastAPI doesn't have endpoint names easily accessible
+        }
+
+    def extract_response_logging_info(self, response) -> Dict[str, Any]:
+        """Extract FastAPI response information for logging"""
+        from fastapi.responses import JSONResponse, Response
+        
+        if isinstance(response, Response):
+            content_size = None
+            if hasattr(response, 'body') and response.body:
+                content_size = len(response.body)
+            
+            return {
+                'status': response.status_code,
+                'size': content_size,
+                'cache_status': response.headers.get('cache-control'),
+                'content_type': response.headers.get('content-type')
+            }
+        elif isinstance(response, (dict, list)):
+            # Dictionary/list response (FastAPI auto-converts to JSON)
+            import json
+            return {
+                'status': 200,
+                'size': len(json.dumps(response).encode('utf-8')),
+                'cache_status': None,
+                'content_type': 'application/json'
+            }
+        else:
+            # Other response types
+            response_str = str(response) if response is not None else ""
+            return {
+                'status': 200,
+                'size': len(response_str.encode('utf-8')),
+                'cache_status': None,
+                'content_type': 'application/json'  # FastAPI default
+            }

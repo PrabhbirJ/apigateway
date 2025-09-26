@@ -161,3 +161,110 @@ class GenericAdapter(FrameworkAdapter):
             raise TokenError("Missing bearer token")
             
         return token
+    
+    def extract_request_logging_info(self, *args, **kwargs) -> Dict[str, Any]:
+        """Extract generic request information for logging"""
+        
+        # Try to extract what we can from the first argument
+        request_info = {
+            'method': 'UNKNOWN',
+            'path': '/',
+            'headers': {},
+            'query_params': {},
+            'client_ip': 'unknown',
+            'user_agent': 'unknown',
+            'content_type': None,
+            'content_length': None,
+            'url': None,
+            'scheme': None,
+            'endpoint': None
+        }
+        
+        if args:
+            first_arg = args[0]
+            
+            # Try to extract common request object attributes
+            if hasattr(first_arg, 'method'):
+                request_info['method'] = getattr(first_arg, 'method', 'UNKNOWN')
+            
+            if hasattr(first_arg, 'path'):
+                request_info['path'] = getattr(first_arg, 'path', '/')
+            elif hasattr(first_arg, 'url'):
+                request_info['path'] = getattr(first_arg, 'url', '/')
+            
+            # Try to get headers
+            if hasattr(first_arg, 'headers'):
+                headers = getattr(first_arg, 'headers')
+                if isinstance(headers, dict):
+                    request_info['headers'] = {k.lower(): v for k, v in headers.items()}
+                    
+                    # Extract common header values
+                    request_info['user_agent'] = request_info['headers'].get('user-agent', 'unknown')
+                    request_info['content_type'] = request_info['headers'].get('content-type')
+                    
+                    content_length = request_info['headers'].get('content-length')
+                    if content_length and content_length.isdigit():
+                        request_info['content_length'] = int(content_length)
+            
+            # Try to get client IP
+            for attr in ['remote_addr', 'client_ip', 'ip']:
+                if hasattr(first_arg, attr):
+                    ip_value = getattr(first_arg, attr)
+                    if ip_value:
+                        request_info['client_ip'] = ip_value
+                        break
+            
+            # Try to get query parameters
+            for attr in ['args', 'query_params', 'GET']:
+                if hasattr(first_arg, attr):
+                    params = getattr(first_arg, attr)
+                    if isinstance(params, dict):
+                        request_info['query_params'] = params
+                        break
+        
+        # Override with any explicit kwargs
+        for key in ['method', 'path', 'client_ip', 'user_agent', 'content_type']:
+            if key in kwargs:
+                request_info[key] = kwargs[key]
+        
+        return request_info
+
+    def extract_response_logging_info(self, response) -> Dict[str, Any]:
+        """Extract generic response information for logging"""
+        
+        if hasattr(response, 'status_code'):
+            # Response object with status code
+            return {
+                'status': response.status_code,
+                'size': len(getattr(response, 'content', b'')) if hasattr(response, 'content') else None,
+                'cache_status': None,
+                'content_type': getattr(response, 'content_type', None)
+            }
+        elif isinstance(response, dict):
+            # Dictionary response
+            import json
+            return {
+                'status': 200,
+                'size': len(json.dumps(response).encode('utf-8')),
+                'cache_status': None,
+                'content_type': 'application/json'
+            }
+        elif isinstance(response, list):
+            # List response
+            import json
+            return {
+                'status': 200,
+                'size': len(json.dumps(response).encode('utf-8')),
+                'cache_status': None,
+                'content_type': 'application/json'
+            }
+        else:
+            # Other response types (string, etc.)
+            response_str = str(response) if response is not None else ""
+            return {
+                'status': 200,
+                'size': len(response_str.encode('utf-8')),
+                'cache_status': None,
+                'content_type': 'text/plain'
+            }
+

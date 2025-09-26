@@ -148,3 +148,70 @@ class FlaskAdapter(FrameworkAdapter):
             return 401  # Unauthorized
         else:
             return 403  # Default to Forbidden
+        
+    def extract_request_logging_info(self, *args, **kwargs) -> Dict[str, Any]:
+        """Extract Flask request information for logging"""
+        from flask import request
+        
+        # Get real IP address (handle proxies and load balancers)
+        client_ip = request.headers.get('X-Forwarded-For')
+        if client_ip:
+            # Take the first IP if multiple are present
+            client_ip = client_ip.split(',')[0].strip()
+        else:
+            client_ip = request.environ.get('REMOTE_ADDR', 'unknown')
+        
+        # Extract all headers with lowercase keys for consistency
+        headers = {}
+        for key, value in request.headers:
+            headers[key.lower()] = value
+        
+        return {
+            'method': request.method,
+            'path': request.path,
+            'headers': headers,
+            'query_params': dict(request.args),
+            'client_ip': client_ip,
+            'user_agent': request.headers.get('User-Agent', 'unknown'),
+            'content_type': request.content_type,
+            'content_length': request.content_length,
+            'url': request.url,
+            'scheme': request.scheme,
+            'endpoint': request.endpoint
+        }
+
+    def extract_response_logging_info(self, response) -> Dict[str, Any]:
+        """Extract Flask response information for logging"""
+        if hasattr(response, 'status_code'):
+            # Flask Response object
+            response_size = None
+            if hasattr(response, 'get_data'):
+                try:
+                    response_size = len(response.get_data())
+                except:
+                    response_size = None
+            
+            return {
+                'status': response.status_code,
+                'size': response_size,
+                'cache_status': response.headers.get('Cache-Control'),
+                'content_type': response.headers.get('Content-Type')
+            }
+        elif isinstance(response, (dict, list)):
+            # JSON response that Flask will serialize
+            import json
+            return {
+                'status': 200,
+                'size': len(json.dumps(response).encode('utf-8')),
+                'cache_status': None,
+                'content_type': 'application/json'
+            }
+        else:
+            # String or other response
+            response_str = str(response) if response is not None else ""
+            return {
+                'status': 200,
+                'size': len(response_str.encode('utf-8')),
+                'cache_status': None,
+                'content_type': 'text/plain'
+            }

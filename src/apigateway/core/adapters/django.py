@@ -141,3 +141,72 @@ class DjangoAdapter(FrameworkAdapter):
             return 401  # Unauthorized
         else:
             return 403  # Default to Forbidden
+    def extract_request_logging_info(self, request, *args, **kwargs) -> Dict[str, Any]:
+        """Extract Django request information for logging"""
+        
+        # Get real IP address (handle proxies)
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            client_ip = x_forwarded_for.split(',')[0].strip()
+        else:
+            client_ip = request.META.get('REMOTE_ADDR', 'unknown')
+        
+        # Extract headers (Django stores them in META with HTTP_ prefix)
+        headers = {}
+        for key, value in request.META.items():
+            if key.startswith('HTTP_'):
+                # Convert HTTP_X_FORWARDED_FOR -> x-forwarded-for
+                header_name = key[5:].replace('_', '-').lower()
+                headers[header_name] = value
+        
+        # Add standard headers that might not have HTTP_ prefix
+        if hasattr(request, 'content_type') and request.content_type:
+            headers['content-type'] = request.content_type
+        
+        return {
+            'method': request.method,
+            'path': request.path,
+            'headers': headers,
+            'query_params': dict(request.GET),
+            'client_ip': client_ip,
+            'user_agent': request.META.get('HTTP_USER_AGENT', 'unknown'),
+            'content_type': getattr(request, 'content_type', None),
+            'content_length': request.META.get('CONTENT_LENGTH'),
+            'url': request.build_absolute_uri(),
+            'scheme': request.scheme,
+            'endpoint': f"{request.resolver_match.view_name}" if request.resolver_match else None
+        }
+
+    def extract_response_logging_info(self, response) -> Dict[str, Any]:
+        """Extract Django response information for logging"""
+        from django.http import HttpResponse, JsonResponse
+        
+        if isinstance(response, HttpResponse):
+            content_size = None
+            if hasattr(response, 'content'):
+                content_size = len(response.content)
+            
+            return {
+                'status': response.status_code,
+                'size': content_size,
+                'cache_status': response.get('Cache-Control'),
+                'content_type': response.get('Content-Type')
+            }
+        elif isinstance(response, dict):
+            # Dictionary response (will be converted to JsonResponse)
+            import json
+            return {
+                'status': 200,
+                'size': len(json.dumps(response).encode('utf-8')),
+                'cache_status': None,
+                'content_type': 'application/json'
+            }
+        else:
+            # Other response types
+            response_str = str(response) if response is not None else ""
+            return {
+                'status': 200,
+                'size': len(response_str.encode('utf-8')),
+                'cache_status': None,
+                'content_type': 'text/plain'
+            }

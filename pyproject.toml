@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "apigateway"
-version = "1.0.0"
+version = "1.4.0"
 description = "API Gateway"
 authors = [{ name = "PrabhBirJ" }]
 requires-python = ">=3.11"
